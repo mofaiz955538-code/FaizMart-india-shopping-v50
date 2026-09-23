@@ -1,1 +1,49 @@
+name: FAIZMART INDIA SHOPPING V50 APK
 
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract V50 ZIP
+        run: |
+          mkdir -p v50
+          unzip -o FAIZMART_INDIA_SHOPPING_V50_APK_BUILD_READY.zip -d v50
+
+      - name: Find Android project
+        run: |
+          find v50 -name gradlew -type f -print
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build APK
+        working-directory: v50
+        run: |
+          chmod +x $(find . -name gradlew -type f | head -1)
+          ./$(find . -name gradlew -type f | head -1 | sed 's#^\./##') assembleDebug
+
+      - name: Find APK
+        run: |
+          find v50 -type f -name "*.apk" -print
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FAIZMART-V50-debug-apk
+          path: v50/**/build/outputs/apk/**/*.apk
