@@ -1,0 +1,69 @@
+import 'package:flutter/material.dart';
+
+class PhoneAuthScreen extends StatefulWidget {
+  @override
+  _PhoneAuthScreenState createState() => _PhoneAuthScreenState();
+}
+
+class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
+  TextEditingController phoneController = TextEditingController();
+  TextEditingController otpController = TextEditingController();
+  bool otpSent = false;
+
+  void sendOtp() {
+    // Yahan Firebase Phone Auth ya Fast2SMS API call karein
+    setState(() {
+      otpSent = true;
+    });
+  }
+
+  void verifyOtp() {
+    // Yahan OTP verify karke app ke main screen par redirect karein
+    print("User Successfully Logged In");
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("Meesho-like App Login")),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (!otpSent) ...[
+              TextField(
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  labelText: "Mobile Number Enter Karein",
+                  prefixText: "+91 ",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: sendOtp,
+                child: Text("OTP Bhejein"),
+              ),
+            ] else ...[
+              TextField(
+                controller: otpController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: "6-Digit OTP Enter Karein",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: verifyOtp,
+                child: Text("OTP Verify Karein & Login"),
+              ),
+            ]
+          ],
+        ),
+      ),
+    );
+  }
+}
