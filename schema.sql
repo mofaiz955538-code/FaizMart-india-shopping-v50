@@ -1,0 +1,38 @@
+-- FAIZMART INDIA SHOPPING — live database integration reference
+-- The production Supabase project already contains the marketplace schema.
+-- This file documents the application-facing tables used by the FINAL MASTER code.
+-- Do not run this file over the live database as a replacement schema.
+--
+-- Primary live tables used by the app:
+-- products(id bigint, name text, category text, price numeric, mrp numeric,
+--   stock integer, image_url text, active boolean, description text,
+--   updated_at timestamptz, seller_id bigint)
+-- categories(id bigint, name text, slug text, icon text, active boolean)
+-- profiles(id uuid, role text, created_at timestamptz)
+-- sellers(id bigint, user_id uuid, business_name text, owner_name text,
+--   phone text, email text, commission_rate numeric, status text, created_at timestamptz)
+-- orders(id bigint, order_no text, customer_name text, phone text, address text,
+--   total numeric, status text, created_at timestamptz, city text, state text,
+--   pincode text, payment_method text, updated_at timestamptz, user_id uuid)
+-- order_items(id bigint, order_id bigint, product_id bigint, product_name text,
+--   qty integer, price numeric, seller_id bigint, commission_rate numeric,
+--   commission_amount numeric, seller_amount numeric)
+-- seller_payouts(id bigint, seller_id bigint, order_item_id bigint,
+--   gross_amount numeric, commission_amount numeric, net_amount numeric,
+--   status text, paid_at timestamptz, created_at timestamptz)
+-- wishlists(id bigint, user_id uuid, product_id bigint, created_at timestamptz)
+-- addresses(id bigint, user_id uuid, full_name text, phone text, address_line text,
+--   city text, state text, pincode text, is_default boolean, created_at timestamptz)
+-- shipments(id bigint, order_id bigint, courier text, tracking_no text,
+--   status text, estimated_delivery date, updated_at timestamptz)
+-- v50_admin_commissions(id uuid, order_id uuid, order_item_id uuid,
+--   gross_amount numeric, commission_rate numeric, commission_amount numeric,
+--   status text, created_at timestamptz, earned_at timestamptz, paid_at timestamptz)
+-- v50_delivery_settings(id integer, mode text, flat_charge numeric,
+--   free_delivery_above numeric, per_km_charge numeric, per_kg_charge numeric,
+--   company_name text, updated_at timestamptz)
+--
+-- Application RPCs used by the app:
+-- is_admin(), register_seller(payload jsonb), place_order(payload jsonb)
+--
+-- Security note: keep RLS enabled and never expose service-role/secret keys.
