@@ -14,10 +14,40 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract V50 ZIP
+      - name: Prepare V50 web source
         run: |
-          mkdir -p v50
-          unzip -o FAIZMART_INDIA_SHOPPING_V50_APK_BUILD_READY.zip -d v50
+          set -e
+          mkdir -p src
+          cp main.js src/main.js
+          cp style.css src/style.css
+          test -f index.html
+          test -f src/main.js
+          test -f src/style.css
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build V50 web app
+        env:
+          VITE_SUPABASE_URL: https://yfbnzywamznaxoooqpna.supabase.co
+          VITE_SUPABASE_ANON_KEY: sb_publishable_mqRrjkQ4qs_oFqaKkKKuXw_hWy5XlFy
+        run: npm run build
+
+      - name: Install Capacitor
+        run: |
+          npm install @capacitor/core@7.4.3 @capacitor/cli@7.4.3 @capacitor/android@7.4.3
+
+      - name: Create Android project
+        run: |
+          npx cap init "FAIZMART INDIA SHOPPING" "com.faizmart.india.shopping" --web-dir dist
+          npx cap add android
+          npx cap copy android
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -25,34 +55,17 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.7'
-
-      - name: Find Android project
-        run: |
-          find v50 -maxdepth 6 \( -name settings.gradle -o -name settings.gradle.kts \) -print
-
       - name: Build APK
-        working-directory: v50
-        run: |
-          PROJECT_DIR=$(find . -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit | xargs -r dirname)
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: No Gradle Android project found in V50 ZIP."
-            exit 1
-          fi
-          cd "$PROJECT_DIR"
-          gradle assembleDebug --stacktrace
+        working-directory: android
+        run: ./gradlew assembleDebug --stacktrace
 
       - name: Find APK
         if: always()
-        run: |
-          find v50 -type f -name "*.apk" -print
+        run: find android -type f -name "*.apk" -print
 
-      - name: Upload APK
+      - name: Upload V50 APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: FAIZMART-V50-debug-apkFAIZMART_INDIA_SHOPPING_V50_APK_BUILD_READY.zip
-          path: v50/**/build/outputs/apk/**/*.apk
+          name: FAIZMART-INDIA-SHOPPING-V50-NEW
+          path: android/app/build/outputs/apk/debug/app-debug.apk
