@@ -87,7 +87,7 @@ function orders(){
 
 async function sendOtp(email){const {error}=await supabase.auth.signInWithOtp({email,options:{shouldCreateUser:true}});return error}
 async function verifyOtp(email,token){const {data,error}=await supabase.auth.verifyOtp({email,token,type:'email'});if(!error){state.session=data.session;state.user=data.user;await hydrateUser()}return error}
-function normalizeIndianPhone(value){const digits=String(value||'').replace(/\\D/g,'');if(digits.length===10)return '+91'+digits;if(digits.length===12&&digits.startsWith('91'))return '+'+digits;if(String(value||'').trim().startsWith('+')&&digits.length>=10&&digits.length<=15)return '+'+digits;throw new Error('Valid mobile number with country code is required.')}
+function normalizeIndianPhone(value){const digits=String(value||'').replace(/\D/g,'');if(digits.length===10)return '+91'+digits;if(digits.length===12&&digits.startsWith('91'))return '+'+digits;if(String(value||'').trim().startsWith('+')&&digits.length>=10&&digits.length<=15)return '+'+digits;throw new Error('Valid mobile number with country code is required.')}
 async function sendPhoneOtp(phone){const {error}=await supabase.auth.signInWithOtp({phone,options:{shouldCreateUser:true}});return error}
 async function verifyPhoneOtp(phone,token){const {data,error}=await supabase.auth.verifyOtp({phone,token,type:'sms'});if(!error){state.session=data.session;state.user=data.user;await hydrateUser()}return error}
 async function hydrateUser(){
