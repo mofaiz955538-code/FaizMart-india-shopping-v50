@@ -1,1 +1,16 @@
-{"name":"FAIZMART INDIA SHOPPING","short_name":"FAIZMART","start_url":"/","display":"standalone","background_color":"#ffffff","theme_color":"#111111","icons":[]}
+{
+  "name": "FAIZMART INDIA SHOPPING",
+  "short_name": "FAIZMART",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#111111",
+  "icons": [
+    {
+      "src": "/assets/faizmart-logo.jpg",
+      "sizes": "128x128",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}

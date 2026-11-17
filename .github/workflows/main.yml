@@ -47,6 +47,28 @@ jobs:
         run: |
           npx cap init "FAIZMART INDIA SHOPPING" "com.faizmart.india.shopping" --web-dir dist
           npx cap add android
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p "android/app/src/main/res/mipmap-${density}"
+            cp public/assets/faizmart-logo.jpg "android/app/src/main/res/mipmap-${density}/ic_launcher.jpg"
+            cp public/assets/faizmart-logo.jpg "android/app/src/main/res/mipmap-${density}/ic_launcher_round.jpg"
+            cp public/assets/faizmart-logo.jpg "android/app/src/main/res/mipmap-${density}/ic_launcher_foreground.jpg"
+          done
+          mkdir -p android/app/src/main/res/mipmap-anydpi-v26 android/app/src/main/res/values
+          cat > android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/faizmart_icon_background" />
+              <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+          </adaptive-icon>
+          EOF
+          cat > android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml <<'EOF'
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/faizmart_icon_background" />
+              <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+          </adaptive-icon>
+          EOF
+          cat > android/app/src/main/res/values/faizmart_colors.xml <<'EOF'
+          <resources><color name="faizmart_icon_background">#FFFFFF</color></resources>
+          EOF
           npx cap sync android
           npx cap copy android
 
