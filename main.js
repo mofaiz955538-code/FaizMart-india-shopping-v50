@@ -204,9 +204,9 @@ async function toggleWish(id){if(!state.user){state.view='auth';render();return}
 function bindPage(){
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{state.view=b.dataset.go;render()});
   document.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{state.category=b.dataset.cat;state.view='products';render()});
-  document.querySelectorAll('.add').forEach(b=>b.onclick=()=>{const p=state.products.find(x=>String(x.id)===String(b.dataset.id));if(!p)return;const found=state.cart.find(x=>String(x.id)===String(p.id));if(found)found.qty=(found.qty||1)+1;else state.cart.push({...p,qty:1});saveCart();render()});
+  document.querySelectorAll('.add').forEach(b=>b.onclick=()=>{const p=state.products.find(x=>String(x.id)===String(b.dataset.id));if(!p)return;const found=state.cart.find(x=>String(x.id)===String(p.id));if(found){if(Number(found.qty||1)>=Number(p.stock||0)){alert('इस प्रोडक्ट का उपलब्ध स्टॉक इतना ही है.');return}found.qty=(found.qty||1)+1}else state.cart.push({...p,qty:1});saveCart();render()});
   document.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{state.cart.splice(Number(b.dataset.remove),1);saveCart();render()});
-  document.querySelectorAll('[data-qty]').forEach(b=>b.onchange=()=>{const i=Number(b.dataset.qty);state.cart[i].qty=Math.max(1,Math.min(99,Number(b.value)||1));saveCart();render()});
+  document.querySelectorAll('[data-qty]').forEach(b=>b.onchange=()=>{const i=Number(b.dataset.qty),item=state.cart[i],max=Math.max(1,Number(item?.stock)||1);state.cart[i].qty=Math.max(1,Math.min(max,99,Number(b.value)||1));saveCart();render()});
   document.querySelectorAll('[data-wish]').forEach(b=>b.onclick=()=>toggleWish(b.dataset.wish));
   const search=document.querySelector('#search');if(search)search.oninput=()=>{state.search=search.value;render();const el=document.querySelector('#search');el?.focus();el?.setSelectionRange(state.search.length,state.search.length)};
   const send=document.querySelector('#send-otp');if(send)send.onclick=async()=>{const email=document.querySelector('#auth-email').value.trim(),m=document.querySelector('#auth-msg');if(!email){m.textContent='Email required.';return}state.otpEmail=email;send.disabled=true;const e=await sendOtp(email);m.textContent=e?e.message:'OTP sent. Inbox/Spam check करें.';send.disabled=false};
