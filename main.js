@@ -136,12 +136,12 @@ async function registerSeller(){
 async function uploadProduct(file){
   if(!supabase||!state.user)throw new Error('पहले अपने खाते में Login करें.');
   if(!file)throw new Error('मोबाइल गैलरी से प्रोडक्ट की फोटो चुनें.');
-  const imageLike=(file.type||'').startsWith('image/')||/\\.(jpe?g|png|webp|heic|heif)$/i.test(file.name||'');
+  const imageLike=['image/jpeg','image/png','image/webp'].includes(file.type)||/\\.(jpe?g|png|webp)$/i.test(file.name||'');
   if(!imageLike)throw new Error('कृपया JPG, PNG, WEBP या HEIC फोटो चुनें.');
-  if(file.size>10*1024*1024)throw new Error('फोटो 10 MB से छोटी रखें.');
+  if(file.size>6*1024*1024)throw new Error('फोटो 6 MB से छोटी रखें.');
   const safe=(file.name||'product-image').replace(/[^a-zA-Z0-9._-]/g,'_');
   const path=`${state.user.id}/${crypto.randomUUID()}-${safe}`;
-  const contentType=file.type||'application/octet-stream';
+  const ext=(safe.split('.').pop()||'').toLowerCase();\n  const contentType=file.type||({jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp'}[ext]||'');\n  if(!['image/jpeg','image/png','image/webp'].includes(contentType))throw new Error('फोटो JPG, PNG या WEBP format में रखें. HEIC फोटो को पहले JPG में बदलें.');
   const {error}=await supabase.storage.from('product-images').upload(path,file,{cacheControl:'3600',upsert:false,contentType});
   if(error){
     if(error.message?.toLowerCase().includes('row-level security')||error.statusCode==='403')throw new Error('फोटो स्टोरेज की अनुमति नहीं मिली. Seller approval और product-images Storage policy जाँचें.');
@@ -222,8 +222,8 @@ function bindPage(){
       if(!file){preview.innerHTML='<small>फोटो चुनने पर उसका preview यहाँ दिखेगा.</small>';return}
       const imageLike=(file.type||'').startsWith('image/')||/\\.(jpe?g|png|webp|heic|heif)$/i.test(file.name||'');
       if(!imageLike){event.target.value='';preview.innerHTML=msg('कृपया image file चुनें.','error');return}
-      if(file.size>10*1024*1024){event.target.value='';preview.innerHTML=msg('फोटो 10 MB से छोटी रखें.','error');return}
-      if((file.type||'').includes('heic')){preview.innerHTML='<small>HEIC फोटो चुनी गई है. अपलोड के बाद ऐप में दिखना फोन/browser support पर निर्भर हो सकता है.</small>';return}
+      if(file.size>6*1024*1024){event.target.value='';preview.innerHTML=msg('फोटो 6 MB से छोटी रखें.','error');return}
+      if(!['image/jpeg','image/png','image/webp'].includes(file.type)){event.target.value='';preview.innerHTML=msg('JPG, PNG या WEBP फोटो चुनें. HEIC फोटो को पहले JPG में बदलें.','error');return}
       const reader=new FileReader();reader.onload=()=>{preview.innerHTML='<img alt="Product photo preview" style="max-width:160px;max-height:160px;object-fit:contain;border-radius:12px" src="'+reader.result+'">'};reader.readAsDataURL(file);
     };
   });
