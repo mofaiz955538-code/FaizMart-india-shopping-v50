@@ -141,7 +141,9 @@ async function uploadProduct(file){
   if(file.size>6*1024*1024)throw new Error('फोटो 6 MB से छोटी रखें.');
   const safe=(file.name||'product-image').replace(/[^a-zA-Z0-9._-]/g,'_');
   const path=`${state.user.id}/${crypto.randomUUID()}-${safe}`;
-  const ext=(safe.split('.').pop()||'').toLowerCase();\n  const contentType=file.type||({jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp'}[ext]||'');\n  if(!['image/jpeg','image/png','image/webp'].includes(contentType))throw new Error('फोटो JPG, PNG या WEBP format में रखें. HEIC फोटो को पहले JPG में बदलें.');
+  const ext=(safe.split('.').pop()||'').toLowerCase();
+  const contentType=file.type||({jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp'}[ext]||'');
+  if(!['image/jpeg','image/png','image/webp'].includes(contentType))throw new Error('फोटो JPG, PNG या WEBP format में रखें. HEIC फोटो को पहले JPG में बदलें.');
   const {error}=await supabase.storage.from('product-images').upload(path,file,{cacheControl:'3600',upsert:false,contentType});
   if(error){
     if(error.message?.toLowerCase().includes('row-level security')||error.statusCode==='403')throw new Error('फोटो स्टोरेज की अनुमति नहीं मिली. Seller approval और product-images Storage policy जाँचें.');
