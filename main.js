@@ -10,7 +10,7 @@ const state = {
   profile: null, seller: null, isAdmin: false, message: '', otpEmail: '',
   search: '', category: '', wishlist: new Set(), addresses: [], orders: [],
   settings: { commission: 10, freeDelivery: 499, flatDelivery: 40, deliveryMode: 'flat', companyName: '' },
-  adminOrders: [], adminSellers: [], adminCommissions: []
+  adminOrders: [], adminSellers: [], adminCommissions: [], backendError: ''
 };
 
 const demoProducts = [
@@ -40,13 +40,13 @@ function page(){
 }
 function home(){
   const live = ready() && state.products.length;
-  return `<section class="hero"><div><span class="pill">${live?'LIVE ONLINE STORE':'ONLINE SHOPPING'}</span><h1>FAIZMART INDIA SHOPPING</h1><p>Customers shop online, sellers manage products, and admin controls the marketplace from one system.</p><button class="primary" data-go="products">Start Shopping</button></div><div class="hero-card"><b>10%</b><span>Default admin commission</span><small>Saved online when configured</small></div></section>
+  return `<section class="hero"><div><span class="pill">${live?'LIVE ONLINE STORE':'ONLINE SHOPPING'}</span><h1>FAIZMART INDIA SHOPPING</h1><p>Customers shop online, sellers manage products, and admin controls the marketplace from one system.</p>${state.backendError?msg('Online data warning: '+state.backendError,'error'):''}<button class="primary" data-go="products">Start Shopping</button></div><div class="hero-card"><b>10%</b><span>Default admin commission</span><small>Saved online when configured</small></div></section>
   <section><div class="section-head"><div><h2>Shop by Category</h2><p>Start with Ladies, Gents and Kids; more categories can be added.</p></div></div><div class="chips">${state.categories.map(c=>`<button data-cat="${esc(c.name)}">${esc(c.icon||'🛍️')} ${esc(c.name)}</button>`).join('')||['Ladies','Gents','Kids','Home & Kitchen','Electronics'].map(c=>`<button data-cat="${c}">${c}</button>`).join('')}</div></section>
   <section><h2>Marketplace Features</h2><div class="grid cards">${['Email OTP customer login','Seller onboarding + approval','Gallery image upload','Online cart + COD order','10% commission calculation','Delivery charge rules','Addresses + wishlist','Order tracking + status'].map(x=>`<div class="card"><b>${x}</b><p>Connected to the online project where permissions allow.</p></div>`).join('')}</div></section>`;
 }
 function products(){
-  const list = (state.products.length?state.products:demoProducts).filter(p=>!state.category || p.category===state.category || p.category?.toLowerCase()===state.category.toLowerCase()).filter(p=>!state.search || `${p.name} ${p.category} ${p.description||''}`.toLowerCase().includes(state.search.toLowerCase()));
-  return `<section><div class="section-head"><div><h2>Products</h2><p>${ready()?'Live online catalog':'Demo catalog — connect Supabase to use real data.'}</p></div><input id="search" value="${esc(state.search)}" placeholder="Search products..."></div><div class="chips"><button data-cat="">All</button>${state.categories.map(c=>`<button data-cat="${esc(c.name)}">${esc(c.name)}</button>`).join('')}</div><div class="grid products">${list.map(productCard).join('')||'<div class="card"><h3>No products found</h3><p>Try another search or category.</p></div>'}</div></section>`;
+  const list = state.products.filter(p=>!state.category || p.category===state.category || p.category?.toLowerCase()===state.category.toLowerCase()).filter(p=>!state.search || `${p.name} ${p.category} ${p.description||''}`.toLowerCase().includes(state.search.toLowerCase()));
+  return `<section><div class="section-head"><div><h2>Products</h2><p>${ready()?'Live online catalog':'Online database is not configured.'}</p>${state.backendError?msg(state.backendError,'error'):''}</div><input id="search" value="${esc(state.search)}" placeholder="Search products..."></div><div class="chips"><button data-cat="">All</button>${state.categories.map(c=>`<button data-cat="${esc(c.name)}">${esc(c.name)}</button>`).join('')}</div><div class="grid products">${list.map(productCard).join('')||'<div class="card"><h3>No products found</h3><p>Try another search or category.</p></div>'}</div></section>`;
 }
 function productCard(p){
   const wished = state.wishlist.has(String(p.id));
@@ -97,13 +97,18 @@ async function hydrateUser(){
   if(state.isAdmin) await loadAdmin();
   await loadWishlist(); await loadOrders();
 }
-async function loadProducts(){if(!supabase){render();return}const [{data:p},{data:c},{data:s}] = await Promise.all([
-  supabase.from('products').select('*').eq('active',true).order('created_at',{ascending:false}),
-  supabase.from('categories').select('*').eq('active',true).order('name'),
-  supabase.from('store_settings').select('*').maybeSingle()
-]); state.products=p||[];state.categories=c||[];
-  if(s) state.settings={...state.settings,freeDelivery:Number(s.free_delivery_threshold||state.settings.freeDelivery)};
-  const {data:d}=await supabase.from('v50_delivery_settings').select('*').maybeSingle(); if(d)state.settings={...state.settings,freeDelivery:Number(d.free_delivery_above),flatDelivery:Number(d.flat_charge),deliveryMode:d.mode,companyName:d.company_name||''};
+async function loadProducts(){
+  if(!supabase){state.backendError='Supabase URL or publishable key is missing from this build.';render();return}
+  const [productsResult,categoriesResult,deliveryResult]=await Promise.all([
+    supabase.from('products').select('*').eq('active',true).order('created_at',{ascending:false}),
+    supabase.from('categories').select('*').eq('active',true).order('name'),
+    supabase.from('v50_delivery_settings').select('*').eq('id',1).maybeSingle()
+  ]);
+  const firstError=productsResult.error||categoriesResult.error||deliveryResult.error;
+  state.backendError=firstError?firstError.message:'';
+  state.products=productsResult.data||[];
+  state.categories=categoriesResult.data||[];
+  if(deliveryResult.data)state.settings={...state.settings,freeDelivery:Number(deliveryResult.data.free_delivery_above),flatDelivery:Number(deliveryResult.data.flat_charge),deliveryMode:deliveryResult.data.mode,companyName:deliveryResult.data.company_name||''};
   render();
 }
 async function loadWishlist(){if(!supabase||!state.user)return;const {data}=await supabase.from('wishlists').select('product_id').eq('user_id',state.user.id);state.wishlist=new Set((data||[]).map(x=>String(x.product_id)));}
@@ -113,7 +118,7 @@ async function loadAdmin(){
   const [{data:orders},{data:sellers},{data:comm}]=await Promise.all([
     supabase.from('orders').select('*').order('created_at',{ascending:false}),
     supabase.from('sellers').select('*').order('created_at',{ascending:false}),
-    supabase.from('v50_admin_commissions').select('*').order('created_at',{ascending:false})
+    supabase.from('seller_payouts').select('*').order('created_at',{ascending:false})
   ]); state.adminOrders=orders||[];state.adminSellers=sellers||[];state.adminCommissions=comm||[];
 }
 async function registerSeller(){
@@ -137,8 +142,8 @@ async function placeOrder(){
 async function saveSettings(){const out=document.querySelector('#admin-msg');const rate=Number(document.querySelector('#commission').value),free=Number(document.querySelector('#free-delivery').value),flat=Number(document.querySelector('#flat-delivery').value),mode=document.querySelector('#delivery-mode').value,company=document.querySelector('#company-name').value.trim();
   if(rate<0||rate>100||free<0||flat<0){out.innerHTML=msg('Settings values सही भरें.','error');return}
   const {error}=await supabase.from('v50_delivery_settings').update({mode,flat_charge:flat,free_delivery_above:free,company_name:company,updated_at:new Date().toISOString()}).eq('id',1);if(error){out.innerHTML=msg(error.message,'error');return}
-  const s=await supabase.from('store_settings').update({updated_at:new Date().toISOString()}).eq('id',1); // legacy store setting is retained; delivery values are authoritative here.
-  state.settings={...state.settings,commission:rate,freeDelivery:free,flatDelivery:flat,deliveryMode:mode,companyName:company};out.innerHTML=msg('Delivery settings saved online. Commission rate is displayed for future seller settlements.','success');
+  const {error:commissionError}=await supabase.from('store_settings').update({admin_commission_rate:rate,updated_at:new Date().toISOString()}).eq('id',1);if(commissionError){out.innerHTML=msg('Delivery saved, but commission setting failed: '+commissionError.message,'error');return}
+  state.settings={...state.settings,commission:rate,freeDelivery:free,flatDelivery:flat,deliveryMode:mode,companyName:company};out.innerHTML=msg('Delivery and admin commission settings saved online. New seller registrations will use this commission rate.','success');
 }
 async function updateSellerStatus(id,status){const {error}=await supabase.from('sellers').update({status,updated_at:new Date().toISOString()}).eq('id',id);if(error)alert(error.message);else{await loadAdmin();render()}}
 async function updateOrderStatus(id,status){const {error}=await supabase.from('orders').update({status,updated_at:new Date().toISOString()}).eq('id',id);if(error)alert(error.message);else{await loadAdmin();render()}}
