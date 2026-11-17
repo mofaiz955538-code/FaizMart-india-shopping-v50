@@ -5,8 +5,10 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
+const savedCart = (() => { try { return JSON.parse(localStorage.getItem('faizmart_cart') || '[]'); } catch { return []; } })();
+const saveCart = () => { try { localStorage.setItem('faizmart_cart', JSON.stringify(state.cart)); } catch {} };
 const state = {
-  view: 'home', products: [], categories: [], cart: [], user: null, session: null,
+  view: 'home', products: [], categories: [], cart: Array.isArray(savedCart) ? savedCart : [], user: null, session: null, otpPhone: '',
   profile: null, seller: null, isAdmin: false, message: '', otpEmail: '',
   search: '', category: '', wishlist: new Set(), addresses: [], orders: [],
   settings: { commission: 10, freeDelivery: 499, flatDelivery: 40, deliveryMode: 'flat', companyName: '' },
@@ -54,7 +56,7 @@ function productCard(p){
 }
 function auth(){
   if(state.user) return `<section class="panel"><h2>My Account</h2>${msg(`Logged in as ${state.user.email||'customer'}`,'success')}<div class="grid two"><div class="card"><h3>Profile</h3><p>Role: <b>${esc(state.profile?.role||'customer')}</b></p><button id="logout">Logout</button></div><div class="card"><h3>Quick Links</h3><button data-go="orders">My Orders</button><button data-go="seller">Seller Panel</button><button data-go="cart">Cart</button></div></div></section>`;
-  return `<section class="panel"><h2>Email OTP Login</h2><p>Gmail/email पर 6-digit OTP भेजकर login करें.</p><div class="card form"><input id="auth-email" type="email" placeholder="Gmail / Email" value="${esc(state.otpEmail)}"><button class="primary" id="send-otp" ${ready()?'':'disabled'}>Send OTP</button><div class="otp-row"><input id="auth-otp" inputmode="numeric" maxlength="6" placeholder="6-digit OTP"><button id="verify-otp" ${ready()?'':'disabled'}>Verify OTP</button></div><div id="auth-msg">${ready()?'':'Supabase connection settings are missing.'}</div></div></section>`;
+  return `<section class="panel"><h2>Login / OTP</h2><div class="card form"><h3>Email OTP</h3><p>Gmail/email पर 6-digit OTP भेजकर login करें.</p><input id="auth-email" type="email" placeholder="Gmail / Email" value="${esc(state.otpEmail)}"><button class="primary" id="send-otp" ${ready()?'':'disabled'}>Send Email OTP</button><div class="otp-row"><input id="auth-otp" inputmode="numeric" maxlength="6" placeholder="6-digit email OTP"><button id="verify-otp" ${ready()?'':'disabled'}>Verify Email OTP</button></div><div id="auth-msg">${ready()?'':'Supabase connection settings are missing.'}</div></div><div class="card form"><h3>Mobile OTP</h3><p>India mobile number डालें. SMS OTP के लिए Supabase में phone provider चालू होना जरूरी है.</p><input id="auth-phone" type="tel" inputmode="tel" placeholder="10-digit mobile / +91 number" value="${esc(state.otpPhone||'')}"><button class="primary" id="send-phone-otp" ${ready()?'':'disabled'}>Send Mobile OTP</button><div class="otp-row"><input id="auth-phone-otp" inputmode="numeric" maxlength="6" placeholder="6-digit SMS OTP"><button id="verify-phone-otp" ${ready()?'':'disabled'}>Verify Mobile OTP</button></div><div id="phone-auth-msg">SMS provider setup may be required.</div></div></section>`;
 }
 function seller(){
   if(!state.user) return `<section class="panel"><h2>Seller Panel</h2>${msg('Seller बनने के लिए पहले customer login करें.')}<button class="primary" data-go="auth">Login / OTP</button></section>`;
@@ -80,11 +82,14 @@ function cart(){
 function checkoutForm(){return `<div class="card form" id="checkout-form"><h3>Delivery Address</h3><input id="cname" placeholder="Full name" value="${esc(state.profile?.full_name||'')}"><input id="cmobile" placeholder="Mobile number" value="${esc(state.profile?.mobile||'')}"><textarea id="caddress" placeholder="House / street / area"></textarea><div class="grid two"><input id="ccity" placeholder="City"><input id="cstate" placeholder="State"></div><input id="cpincode" inputmode="numeric" placeholder="Pincode"><button class="primary" id="confirm-order">Confirm COD Order</button><button id="cancel-checkout">Cancel</button><div id="checkout-msg"></div></div>`}
 function orders(){
   if(!state.user) return `<section class="panel"><h2>My Orders</h2>${msg('पहले login करें.')}<button class="primary" data-go="auth">Login</button></section>`;
-  return `<section class="panel"><div class="section-head"><div><h2>My Orders</h2><p>आपके online orders और status.</p></div><button id="refresh-orders">Refresh</button></div>${state.orders.map(o=>`<div class="order-card"><div><b>${esc(o.order_no)}</b><span>${esc(o.status)}</span></div><p>${esc(o.address||'')} • ${esc(o.city||'')} ${esc(o.pincode||'')}</p><strong>${money(o.total)}</strong></div>`).join('')||'<p>No orders found.</p>'}</section>`;
+  return `<section class="panel"><div class="section-head"><div><h2>My Orders</h2><p>आपके online orders और status.</p></div><button id="refresh-orders">Refresh</button></div><div id="orders-msg"></div>${state.orders.map(o=>`<div class="order-card"><div><b>${esc(o.order_no)}</b><span>${esc(o.status)}</span></div><p>${esc(o.address||'')} • ${esc(o.city||'')} ${esc(o.pincode||'')}</p><strong>${money(o.total)}</strong></div>`).join('')||'<p>No orders found.</p>'}</section>`;
 }
 
 async function sendOtp(email){const {error}=await supabase.auth.signInWithOtp({email,options:{shouldCreateUser:true}});return error}
 async function verifyOtp(email,token){const {data,error}=await supabase.auth.verifyOtp({email,token,type:'email'});if(!error){state.session=data.session;state.user=data.user;await hydrateUser()}return error}
+function normalizeIndianPhone(value){const digits=String(value||'').replace(/\\D/g,'');if(digits.length===10)return '+91'+digits;if(digits.length===12&&digits.startsWith('91'))return '+'+digits;if(String(value||'').trim().startsWith('+')&&digits.length>=10&&digits.length<=15)return '+'+digits;throw new Error('Valid mobile number with country code is required.')}
+async function sendPhoneOtp(phone){const {error}=await supabase.auth.signInWithOtp({phone,options:{shouldCreateUser:true}});return error}
+async function verifyPhoneOtp(phone,token){const {data,error}=await supabase.auth.verifyOtp({phone,token,type:'sms'});if(!error){state.session=data.session;state.user=data.user;await hydrateUser()}return error}
 async function hydrateUser(){
   if(!supabase||!state.user)return;
   const [{data:profile},{data:seller},{data:addrs}] = await Promise.all([
@@ -97,7 +102,7 @@ async function hydrateUser(){
   if(state.isAdmin) await loadAdmin();
   await loadWishlist(); await loadOrders();
 }
-async function loadProducts(){
+async function loadProducts({renderAfter=true}={}){
   if(!supabase){state.backendError='Supabase URL or publishable key is missing from this build.';render();return}
   const [productsResult,categoriesResult,deliveryResult,storeResult]=await Promise.all([
     supabase.from('products').select('*').eq('active',true).order('created_at',{ascending:false}),
@@ -111,7 +116,7 @@ async function loadProducts(){
   state.categories=categoriesResult.data||[];
   if(deliveryResult.data)state.settings={...state.settings,freeDelivery:Number(deliveryResult.data.free_delivery_above),flatDelivery:Number(deliveryResult.data.flat_charge),deliveryMode:deliveryResult.data.mode,companyName:deliveryResult.data.company_name||''};
   if(storeResult.data)state.settings.commission=Number(storeResult.data.admin_commission_rate||10);
-  render();
+  if(renderAfter)render();
 }
 async function loadWishlist(){if(!supabase||!state.user)return;const {data}=await supabase.from('wishlists').select('product_id').eq('user_id',state.user.id);state.wishlist=new Set((data||[]).map(x=>String(x.product_id)));}
 async function loadOrders(){if(!supabase||!state.user)return;const {data}=await supabase.from('orders').select('*').eq('user_id',state.user.id).order('created_at',{ascending:false});state.orders=data||[];}
@@ -139,7 +144,7 @@ async function placeOrder(){
   const out=document.querySelector('#checkout-msg');const payload={customer_name:document.querySelector('#cname').value.trim(),mobile:document.querySelector('#cmobile').value.trim(),address:document.querySelector('#caddress').value.trim(),city:document.querySelector('#ccity').value.trim(),state:document.querySelector('#cstate').value.trim(),pincode:document.querySelector('#cpincode').value.trim(),items:state.cart.map(p=>({product_id:Number(p.id),quantity:Number(p.qty||1)}))};
   if(!payload.customer_name||!payload.mobile||!payload.address){out.innerHTML=msg('Name, mobile और address जरूरी हैं.','error');return}
   const {data,error}=await supabase.rpc('place_order',{payload}); if(error){out.innerHTML=msg(error.message,'error');return}
-  state.cart=[];await loadProducts();await loadOrders();document.querySelector('#cart-msg').innerHTML=msg(`Order ${data.order_number||data.order_no||''} placed. Total ${money(data.total)}.`,`success`);render();
+  state.cart=[];saveCart();await loadProducts({renderAfter:false});await loadOrders();state.view='orders';render();const notice=document.querySelector('#orders-msg');if(notice)notice.innerHTML=msg(`Order ${data.order_number||data.order_no||''} placed successfully. Total ${money(data.total)}.`,`success`);
 }
 async function saveSettings(){const out=document.querySelector('#admin-msg');const rate=Number(document.querySelector('#commission').value),free=Number(document.querySelector('#free-delivery').value),flat=Number(document.querySelector('#flat-delivery').value),mode=document.querySelector('#delivery-mode').value,company=document.querySelector('#company-name').value.trim();
   if(rate<0||rate>100||free<0||flat<0){out.innerHTML=msg('Settings values सही भरें.','error');return}
@@ -154,13 +159,15 @@ async function toggleWish(id){if(!state.user){state.view='auth';render();return}
 function bindPage(){
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{state.view=b.dataset.go;render()});
   document.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{state.category=b.dataset.cat;state.view='products';render()});
-  document.querySelectorAll('.add').forEach(b=>b.onclick=()=>{const p=[...state.products,...demoProducts].find(x=>String(x.id)===String(b.dataset.id));if(!p)return;const found=state.cart.find(x=>String(x.id)===String(p.id));if(found)found.qty=(found.qty||1)+1;else state.cart.push({...p,qty:1});render()});
-  document.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{state.cart.splice(Number(b.dataset.remove),1);render()});
-  document.querySelectorAll('[data-qty]').forEach(b=>b.onchange=()=>{const i=Number(b.dataset.qty);state.cart[i].qty=Math.max(1,Math.min(99,Number(b.value)||1));render()});
+  document.querySelectorAll('.add').forEach(b=>b.onclick=()=>{const p=state.products.find(x=>String(x.id)===String(b.dataset.id));if(!p)return;const found=state.cart.find(x=>String(x.id)===String(p.id));if(found)found.qty=(found.qty||1)+1;else state.cart.push({...p,qty:1});saveCart();render()});
+  document.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{state.cart.splice(Number(b.dataset.remove),1);saveCart();render()});
+  document.querySelectorAll('[data-qty]').forEach(b=>b.onchange=()=>{const i=Number(b.dataset.qty);state.cart[i].qty=Math.max(1,Math.min(99,Number(b.value)||1));saveCart();render()});
   document.querySelectorAll('[data-wish]').forEach(b=>b.onclick=()=>toggleWish(b.dataset.wish));
   const search=document.querySelector('#search');if(search)search.oninput=()=>{state.search=search.value;render();const el=document.querySelector('#search');el?.focus();el?.setSelectionRange(state.search.length,state.search.length)};
   const send=document.querySelector('#send-otp');if(send)send.onclick=async()=>{const email=document.querySelector('#auth-email').value.trim(),m=document.querySelector('#auth-msg');if(!email){m.textContent='Email required.';return}state.otpEmail=email;send.disabled=true;const e=await sendOtp(email);m.textContent=e?e.message:'OTP sent. Inbox/Spam check करें.';send.disabled=false};
   const verify=document.querySelector('#verify-otp');if(verify)verify.onclick=async()=>{const token=document.querySelector('#auth-otp').value.trim(),m=document.querySelector('#auth-msg');const e=await verifyOtp(state.otpEmail,token);m.textContent=e?e.message:'Verified.';if(!e)render()};
+  const sendPhone=document.querySelector('#send-phone-otp');if(sendPhone)sendPhone.onclick=async()=>{const m=document.querySelector('#phone-auth-msg');try{state.otpPhone=normalizeIndianPhone(document.querySelector('#auth-phone').value);sendPhone.disabled=true;const e=await sendPhoneOtp(state.otpPhone);m.textContent=e?e.message:'SMS OTP sent. Message inbox check करें.'; }catch(e){m.textContent=e.message||'SMS OTP could not be sent.'}finally{sendPhone.disabled=false}};
+  const verifyPhone=document.querySelector('#verify-phone-otp');if(verifyPhone)verifyPhone.onclick=async()=>{const m=document.querySelector('#phone-auth-msg'),token=document.querySelector('#auth-phone-otp').value.trim();try{const e=await verifyPhoneOtp(state.otpPhone,token);m.textContent=e?e.message:'Mobile verified.';if(!e)render()}catch(e){m.textContent=e.message||'OTP verification failed.'}};
   document.querySelector('#logout')?.addEventListener('click',async()=>{await supabase.auth.signOut();state.user=null;state.session=null;state.profile=null;state.seller=null;state.isAdmin=false;render()});
   document.querySelector('#seller-register')?.addEventListener('click',registerSeller);
   document.querySelector('[data-action="add-product"]')?.addEventListener('click',()=>{document.querySelector('#seller-area').innerHTML=sellerProductForm();document.querySelector('#save-product').onclick=saveSellerProduct});
