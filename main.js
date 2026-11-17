@@ -99,16 +99,18 @@ async function hydrateUser(){
 }
 async function loadProducts(){
   if(!supabase){state.backendError='Supabase URL or publishable key is missing from this build.';render();return}
-  const [productsResult,categoriesResult,deliveryResult]=await Promise.all([
+  const [productsResult,categoriesResult,deliveryResult,storeResult]=await Promise.all([
     supabase.from('products').select('*').eq('active',true).order('created_at',{ascending:false}),
     supabase.from('categories').select('*').eq('active',true).order('name'),
-    supabase.from('v50_delivery_settings').select('*').eq('id',1).maybeSingle()
+    supabase.from('v50_delivery_settings').select('*').eq('id',1).maybeSingle(),
+    supabase.from('store_settings').select('admin_commission_rate').eq('id',1).maybeSingle()
   ]);
-  const firstError=productsResult.error||categoriesResult.error||deliveryResult.error;
+  const firstError=productsResult.error||categoriesResult.error||deliveryResult.error||storeResult.error;
   state.backendError=firstError?firstError.message:'';
   state.products=productsResult.data||[];
   state.categories=categoriesResult.data||[];
   if(deliveryResult.data)state.settings={...state.settings,freeDelivery:Number(deliveryResult.data.free_delivery_above),flatDelivery:Number(deliveryResult.data.flat_charge),deliveryMode:deliveryResult.data.mode,companyName:deliveryResult.data.company_name||''};
+  if(storeResult.data)state.settings.commission=Number(storeResult.data.admin_commission_rate||10);
   render();
 }
 async function loadWishlist(){if(!supabase||!state.user)return;const {data}=await supabase.from('wishlists').select('product_id').eq('user_id',state.user.id);state.wishlist=new Set((data||[]).map(x=>String(x.product_id)));}
