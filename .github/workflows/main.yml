@@ -47,6 +47,7 @@ jobs:
         run: |
           npx cap init "FAIZMART INDIA SHOPPING" "com.faizmart.india.shopping" --web-dir dist
           npx cap add android
+          npx cap sync android
           npx cap copy android
 
       - name: Setup Java
