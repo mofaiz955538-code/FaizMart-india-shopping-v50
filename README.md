@@ -1,22 +1,26 @@
 # FAIZMART INDIA SHOPPING — V50
 
-APK-build-ready Android project for **FAIZMART INDIA SHOPPING V50**.
+APK-buildable Android shopping app backed by the live Supabase project.
 
-## Included
-- Android Gradle project
-- Java 17 + Android Gradle Plugin 8.6.1
-- WebView-based customer shopping app
-- Product browsing, search and categories
-- Cart and COD checkout
-- My Orders and order status management
-- Admin/Seller product entry with price/stock/photo URL
-- WhatsApp order handoff
-- Local device storage for the prototype
-- GitHub Actions workflow that builds a debug APK automatically
-- Brand logo asset in `app/src/main/assets/logo.svg`
+## Connected application features
+- Live product and category catalog from Supabase
+- Customer email OTP authentication
+- Mobile OTP interface (requires an SMS provider to be enabled and configured in Supabase Auth)
+- Customer cart saved on the device between app sessions
+- COD order placement through a database RPC, with server-side price and stock checks
+- Customer order history
+- Seller registration and admin approval
+- Seller product creation with product-image upload to Supabase Storage
+- Admin seller/order management, delivery settings, and 10% default commission setting
+- GitHub Actions workflow that builds a debug APK artifact
 
-## Important
-This V50 build is APK-ready, but the current shopping data is stored locally on the device. A real multi-device online database, seller OTP verification, payments and production authentication must be connected separately before production launch.
+## Production setup still required
+- Configure an SMS provider in Supabase Auth before mobile OTP can send messages. Provider credentials and any SMS charges are controlled by the provider.
+- Verify the live customer, seller, and admin flows with real accounts on a device.
+- Configure a production email sender/SMTP and review email OTP templates and deliverability.
+- Configure a production hosting domain and app-store signing/release process before public launch.
+- Online payments and courier integrations are not enabled; COD is the current checkout method.
 
 ## Build
-Run `gradle :app:assembleDebug`, or use the GitHub Actions **Build V50 APK** workflow. The generated APK is uploaded as a workflow artifact.
+GitHub Actions → **FAIZMART INDIA SHOPPING V50 APK** → download the artifact from a successful run.
+The workflow builds a debug APK using Java 21 and uploads it as a workflow artifact.
