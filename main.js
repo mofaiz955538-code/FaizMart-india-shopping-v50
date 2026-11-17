@@ -1,5 +1,7 @@
 import './style.css';
 import { createClient } from '@supabase/supabase-js';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -8,7 +10,7 @@ const supabase = SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_URL, 
 const savedCart = (() => { try { return JSON.parse(localStorage.getItem('faizmart_cart') || '[]'); } catch { return []; } })();
 const saveCart = () => { try { localStorage.setItem('faizmart_cart', JSON.stringify(state.cart)); } catch {} };
 const state = {
-  view: 'home', products: [], categories: [], cart: Array.isArray(savedCart) ? savedCart : [], user: null, session: null, otpPhone: '',
+  view: 'home', products: [], categories: [], cart: Array.isArray(savedCart) ? savedCart : [], user: null, session: null, otpPhone: '', selectedProductPhoto: null,
   profile: null, seller: null, isAdmin: false, message: '', otpEmail: '',
   search: '', category: '', wishlist: new Set(), addresses: [], orders: [],
   settings: { commission: 10, freeDelivery: 499, flatDelivery: 40, deliveryMode: 'flat', companyName: '' },
@@ -133,6 +135,24 @@ async function registerSeller(){
   if(!data.business_name){out.innerHTML=msg('Shop/business name जरूरी है.','error');return}
   const {error}=await supabase.rpc('register_seller',{payload:data}); out.innerHTML=error?msg(error.message,'error'):msg('Seller application saved. Admin approval के बाद product listing चालू होगी.','success'); if(!error){await hydrateUser();render()}
 }
+async function pickProductPhoto(){
+  try{
+    const photo=await Camera.getPhoto({quality:82,allowEditing:false,resultType:CameraResultType.Uri,source:CameraSource.Photos,width:1800,height:1800,promptLabelHeader:'प्रोडक्ट की फोटो चुनें',promptLabelPhoto:'गैलरी से चुनें'});
+    if(!photo?.webPath)throw new Error('गैलरी से फोटो नहीं मिली.');
+    const response=await fetch(photo.webPath);
+    if(!response.ok)throw new Error('चुनी हुई फोटो पढ़ी नहीं जा सकी.');
+    const blob=await response.blob();
+    const file=new File([blob],`faizmart-product-${Date.now()}.jpg`,{type:'image/jpeg',lastModified:Date.now()});
+    if(file.size>6*1024*1024)throw new Error('फोटो 6 MB से बड़ी है. छोटी फोटो चुनें.');
+    state.selectedProductPhoto=file;
+    const input=document.querySelector('#pfile');if(input)input.value='';
+    const preview=document.querySelector('#product-preview');if(preview)preview.innerHTML=`<img alt="Product photo preview" style="max-width:180px;max-height:180px;object-fit:contain;border-radius:12px" src="${URL.createObjectURL(file)}"><small>गैलरी फोटो तैयार है.</small>`;
+    const out=document.querySelector('#product-msg');if(out)out.innerHTML=msg('फोटो चुन ली गई है. अब प्रोडक्ट सेव करें.','success');
+  }catch(e){
+    const cancelled=/cancel|canceled|cancelled/i.test(e?.message||'');
+    if(!cancelled){const out=document.querySelector('#product-msg');if(out)out.innerHTML=msg('गैलरी नहीं खुली: '+(e.message||'कृपया नीचे वाले फोटो विकल्प का उपयोग करें.'),'error');}
+  }
+}
 async function uploadProduct(file){
   if(!supabase||!state.user)throw new Error('पहले अपने खाते में Login करें.');
   if(!file)throw new Error('मोबाइल गैलरी से प्रोडक्ट की फोटो चुनें.');
@@ -151,7 +171,7 @@ async function uploadProduct(file){
   }
   return {url:supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl,path};
 }
-function sellerProductForm(){return `<div class="card form"><h3>नया प्रोडक्ट जोड़ें</h3><label>प्रोडक्ट का नाम<input id="pname" required maxlength="120" placeholder="जैसे Ladies Kurti"></label><label>विवरण<textarea id="pdesc" maxlength="2000" placeholder="प्रोडक्ट की जानकारी"></textarea></label><div class="grid two"><label>कैटेगरी<input id="pcat" required maxlength="80" placeholder="Ladies / Gents / Kids"></label><label>बेचने की कीमत (₹)<input id="pprice" type="number" min="1" step="0.01" required inputmode="decimal" placeholder="Selling price"></label></div><div class="grid two"><label>MRP (₹)<input id="pmrp" type="number" min="0" step="0.01" inputmode="decimal" placeholder="MRP (optional)"></label><label>स्टॉक<input id="pstock" type="number" min="0" step="1" required inputmode="numeric" value="1"></label></div><label class="file">मोबाइल गैलरी से प्रोडक्ट फोटो चुनें <input id="pfile" type="file" accept="image/*" required></label><div id="product-preview" class="product-upload-preview"><small>फोटो चुनने पर उसका preview यहाँ दिखेगा.</small></div><button class="primary" id="save-product">फोटो अपलोड करें और प्रोडक्ट सेव करें</button><div id="product-msg" aria-live="polite"></div></div>`}
+function sellerProductForm(){return `<div class="card form"><h3>नया प्रोडक्ट जोड़ें</h3><label>प्रोडक्ट का नाम<input id="pname" required maxlength="120" placeholder="जैसे Ladies Kurti"></label><label>विवरण<textarea id="pdesc" maxlength="2000" placeholder="प्रोडक्ट की जानकारी"></textarea></label><div class="grid two"><label>कैटेगरी<input id="pcat" required maxlength="80" placeholder="Ladies / Gents / Kids"></label><label>बेचने की कीमत (₹)<input id="pprice" type="number" min="1" step="0.01" required inputmode="decimal" placeholder="Selling price"></label></div><div class="grid two"><label>MRP (₹)<input id="pmrp" type="number" min="0" step="0.01" inputmode="decimal" placeholder="MRP (optional)"></label><label>स्टॉक<input id="pstock" type="number" min="0" step="1" required inputmode="numeric" value="1"></label></div><div class="gallery-picker"><button type="button" id="pick-gallery">📷 मोबाइल गैलरी से फोटो चुनें</button><small>अगर गैलरी बटन काम न करे तो नीचे से फोटो चुनें.</small><input id="pfile" type="file" accept="image/*,.jpg,.jpeg,.png,.webp" capture="environment"></div><div id="product-preview" class="product-upload-preview"><small>फोटो चुनने पर उसका preview यहाँ दिखेगा.</small></div><button class="primary" id="save-product">फोटो अपलोड करें और प्रोडक्ट सेव करें</button><div id="product-msg" aria-live="polite"></div></div>`}
 async function saveSellerProduct(){
   const out=document.querySelector('#product-msg'),button=document.querySelector('#save-product');
   if(!out||!button)return;
@@ -163,7 +183,7 @@ async function saveSellerProduct(){
   const price=Number(document.querySelector('#pprice').value);
   const mrp=Number(document.querySelector('#pmrp').value||0);
   const stock=Number(document.querySelector('#pstock').value);
-  const file=document.querySelector('#pfile').files?.[0];
+  const file=state.selectedProductPhoto||document.querySelector('#pfile').files?.[0];
   if(!name){out.innerHTML=msg('प्रोडक्ट का नाम भरें.','error');return}
   if(!Number.isFinite(price)||price<=0){out.innerHTML=msg('बेचने की सही कीमत भरें.','error');return}
   if(!Number.isFinite(mrp)||mrp<0||(mrp>0&&mrp<price)){out.innerHTML=msg('MRP खाली छोड़ें या बेचने की कीमत के बराबर/अधिक रखें.','error');return}
@@ -177,7 +197,7 @@ async function saveSellerProduct(){
     const {data,error}=await supabase.from('products').insert(row).select('id,name').single();
     if(error)throw new Error('प्रोडक्ट डेटाबेस में सेव नहीं हुआ: '+error.message);
     await loadProducts({renderAfter:false});
-    document.querySelector('#pname').value='';document.querySelector('#pdesc').value='';document.querySelector('#pcat').value='';document.querySelector('#pprice').value='';document.querySelector('#pmrp').value='';document.querySelector('#pstock').value='1';document.querySelector('#pfile').value='';
+    document.querySelector('#pname').value='';document.querySelector('#pdesc').value='';document.querySelector('#pcat').value='';document.querySelector('#pprice').value='';document.querySelector('#pmrp').value='';document.querySelector('#pstock').value='1';document.querySelector('#pfile').value='';state.selectedProductPhoto=null;
     document.querySelector('#product-preview').innerHTML='<small>फोटो चुनने पर उसका preview यहाँ दिखेगा.</small>';
     out.innerHTML=msg('सफलता! प्रोडक्ट और उसकी फोटो ऑनलाइन सेव हो गए. प्रोडक्ट ID: '+data.id,'success');
   }catch(e){
@@ -246,14 +266,16 @@ function bindPage(){
   document.querySelector('[data-action="add-product"]')?.addEventListener('click',()=>{
     const area=document.querySelector('#seller-area');area.innerHTML=sellerProductForm();
     document.querySelector('#save-product').onclick=saveSellerProduct;
+    document.querySelector('#pick-gallery').onclick=pickProductPhoto;
     document.querySelector('#pfile').onchange=event=>{
       const file=event.target.files?.[0],preview=document.querySelector('#product-preview');
+      state.selectedProductPhoto=file||null;
       if(!preview)return;
       if(!file){preview.innerHTML='<small>फोटो चुनने पर उसका preview यहाँ दिखेगा.</small>';return}
       const imageLike=(file.type||'').startsWith('image/')||/\.(jpe?g|png|webp|heic|heif)$/i.test(file.name||'');
       if(!imageLike){event.target.value='';preview.innerHTML=msg('कृपया image file चुनें.','error');return}
       if(file.size>6*1024*1024){event.target.value='';preview.innerHTML=msg('फोटो 6 MB से छोटी रखें.','error');return}
-      if(file.type&&!['image/jpeg','image/png','image/webp'].includes(file.type)){event.target.value='';preview.innerHTML=msg('JPG, PNG या WEBP फोटो चुनें. HEIC फोटो को पहले JPG में बदलें.','error');return}
+      if(file.type&&!['image/jpeg','image/png','image/webp'].includes(file.type)){event.target.value='';state.selectedProductPhoto=null;preview.innerHTML=msg('JPG, PNG या WEBP फोटो चुनें. HEIC फोटो के लिए ऊपर वाला गैलरी बटन इस्तेमाल करें.','error');return}
       const reader=new FileReader();reader.onload=()=>{preview.innerHTML='<img alt="Product photo preview" style="max-width:160px;max-height:160px;object-fit:contain;border-radius:12px" src="'+reader.result+'">'};reader.readAsDataURL(file);
     };
   });
