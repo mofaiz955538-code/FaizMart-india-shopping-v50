@@ -225,7 +225,7 @@ function bindPage(){
       const imageLike=(file.type||'').startsWith('image/')||/\\.(jpe?g|png|webp|heic|heif)$/i.test(file.name||'');
       if(!imageLike){event.target.value='';preview.innerHTML=msg('कृपया image file चुनें.','error');return}
       if(file.size>6*1024*1024){event.target.value='';preview.innerHTML=msg('फोटो 6 MB से छोटी रखें.','error');return}
-      if(!['image/jpeg','image/png','image/webp'].includes(file.type)){event.target.value='';preview.innerHTML=msg('JPG, PNG या WEBP फोटो चुनें. HEIC फोटो को पहले JPG में बदलें.','error');return}
+      if(file.type&&!['image/jpeg','image/png','image/webp'].includes(file.type)){event.target.value='';preview.innerHTML=msg('JPG, PNG या WEBP फोटो चुनें. HEIC फोटो को पहले JPG में बदलें.','error');return}
       const reader=new FileReader();reader.onload=()=>{preview.innerHTML='<img alt="Product photo preview" style="max-width:160px;max-height:160px;object-fit:contain;border-radius:12px" src="'+reader.result+'">'};reader.readAsDataURL(file);
     };
   });
