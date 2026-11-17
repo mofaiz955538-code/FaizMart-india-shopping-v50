@@ -133,12 +133,55 @@ async function registerSeller(){
   if(!data.business_name){out.innerHTML=msg('Shop/business name जरूरी है.','error');return}
   const {error}=await supabase.rpc('register_seller',{payload:data}); out.innerHTML=error?msg(error.message,'error'):msg('Seller application saved. Admin approval के बाद product listing चालू होगी.','success'); if(!error){await hydrateUser();render()}
 }
-async function uploadProduct(file){if(!supabase||!state.user)throw new Error('Login first.');if(!file?.type.startsWith('image/'))throw new Error('Only image files are allowed.');if(file.size>6*1024*1024)throw new Error('Image 6 MB से छोटी रखें.');const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');const path=`${state.user.id}/${crypto.randomUUID()}-${safe}`;const {error}=await supabase.storage.from('product-images').upload(path,file,{cacheControl:'3600',upsert:false,contentType:file.type});if(error)throw error;return supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;}
-function sellerProductForm(){return `<div class="card form"><h3>Add Product</h3><input id="pname" placeholder="Product name"><textarea id="pdesc" placeholder="Description"></textarea><div class="grid two"><input id="pcat" placeholder="Category"><input id="pprice" type="number" min="0" placeholder="Selling price"></div><div class="grid two"><input id="pmrp" type="number" min="0" placeholder="MRP"><input id="pstock" type="number" min="0" placeholder="Stock"></div><label class="file">Product photo <input id="pfile" type="file" accept="image/jpeg,image/png,image/webp"></label><button class="primary" id="save-product">Upload & Save Product</button><div id="product-msg"></div></div>`}
+async function uploadProduct(file){
+  if(!supabase||!state.user)throw new Error('पहले अपने खाते में Login करें.');
+  if(!file)throw new Error('मोबाइल गैलरी से प्रोडक्ट की फोटो चुनें.');
+  const imageLike=(file.type||'').startsWith('image/')||/\\.(jpe?g|png|webp|heic|heif)$/i.test(file.name||'');
+  if(!imageLike)throw new Error('कृपया JPG, PNG, WEBP या HEIC फोटो चुनें.');
+  if(file.size>10*1024*1024)throw new Error('फोटो 10 MB से छोटी रखें.');
+  const safe=(file.name||'product-image').replace(/[^a-zA-Z0-9._-]/g,'_');
+  const path=`${state.user.id}/${crypto.randomUUID()}-${safe}`;
+  const contentType=file.type||'application/octet-stream';
+  const {error}=await supabase.storage.from('product-images').upload(path,file,{cacheControl:'3600',upsert:false,contentType});
+  if(error){
+    if(error.message?.toLowerCase().includes('row-level security')||error.statusCode==='403')throw new Error('फोटो स्टोरेज की अनुमति नहीं मिली. Seller approval और product-images Storage policy जाँचें.');
+    throw new Error('फोटो ऑनलाइन अपलोड नहीं हुई: '+error.message);
+  }
+  return {url:supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl,path};
+}
+function sellerProductForm(){return `<div class="card form"><h3>नया प्रोडक्ट जोड़ें</h3><label>प्रोडक्ट का नाम<input id="pname" required maxlength="120" placeholder="जैसे Ladies Kurti"></label><label>विवरण<textarea id="pdesc" maxlength="2000" placeholder="प्रोडक्ट की जानकारी"></textarea></label><div class="grid two"><label>कैटेगरी<input id="pcat" required maxlength="80" placeholder="Ladies / Gents / Kids"></label><label>बेचने की कीमत (₹)<input id="pprice" type="number" min="1" step="0.01" required inputmode="decimal" placeholder="Selling price"></label></div><div class="grid two"><label>MRP (₹)<input id="pmrp" type="number" min="0" step="0.01" inputmode="decimal" placeholder="MRP (optional)"></label><label>स्टॉक<input id="pstock" type="number" min="0" step="1" required inputmode="numeric" value="1"></label></div><label class="file">मोबाइल गैलरी से प्रोडक्ट फोटो चुनें <input id="pfile" type="file" accept="image/*" required></label><div id="product-preview" class="product-upload-preview"><small>फोटो चुनने पर उसका preview यहाँ दिखेगा.</small></div><button class="primary" id="save-product">फोटो अपलोड करें और प्रोडक्ट सेव करें</button><div id="product-msg" aria-live="polite"></div></div>`}
 async function saveSellerProduct(){
-  const out=document.querySelector('#product-msg'); if(!state.seller||state.seller.status!=='approved'){out.innerHTML=msg('Seller approval required.','error');return}
-  try{const file=document.querySelector('#pfile').files[0];const image_url=await uploadProduct(file);const row={name:document.querySelector('#pname').value.trim(),description:document.querySelector('#pdesc').value.trim(),category:document.querySelector('#pcat').value.trim()||'General',price:Number(document.querySelector('#pprice').value),mrp:Number(document.querySelector('#pmrp').value||0),stock:Number(document.querySelector('#pstock').value||0),image_url,seller_id:state.seller.id,active:true};if(!row.name||!row.price){throw new Error('Name और price जरूरी हैं.')}const {error}=await supabase.from('products').insert(row);if(error)throw error;out.innerHTML=msg('Product uploaded and saved online.','success');await loadProducts();}
-  catch(e){out.innerHTML=msg(e.message||'Upload failed.','error')}
+  const out=document.querySelector('#product-msg'),button=document.querySelector('#save-product');
+  if(!out||!button)return;
+  if(!supabase||!state.user){out.innerHTML=msg('पहले Login करें.','error');return}
+  if(!state.seller||state.seller.status!=='approved'){out.innerHTML=msg('Admin approval के बाद ही प्रोडक्ट जोड़ा जा सकता है.','error');return}
+  const name=document.querySelector('#pname').value.trim();
+  const category=document.querySelector('#pcat').value.trim()||'General';
+  const description=document.querySelector('#pdesc').value.trim();
+  const price=Number(document.querySelector('#pprice').value);
+  const mrp=Number(document.querySelector('#pmrp').value||0);
+  const stock=Number(document.querySelector('#pstock').value);
+  const file=document.querySelector('#pfile').files?.[0];
+  if(!name){out.innerHTML=msg('प्रोडक्ट का नाम भरें.','error');return}
+  if(!Number.isFinite(price)||price<=0){out.innerHTML=msg('बेचने की सही कीमत भरें.','error');return}
+  if(!Number.isFinite(mrp)||mrp<0||(mrp>0&&mrp<price)){out.innerHTML=msg('MRP खाली छोड़ें या बेचने की कीमत के बराबर/अधिक रखें.','error');return}
+  if(!Number.isInteger(stock)||stock<0){out.innerHTML=msg('स्टॉक 0 या उससे अधिक पूरा नंबर होना चाहिए.','error');return}
+  if(!file){out.innerHTML=msg('प्रोडक्ट की फोटो चुनना जरूरी है.','error');return}
+  button.disabled=true;button.textContent='अपलोड हो रहा है…';out.innerHTML=msg('फोटो ऑनलाइन अपलोड हो रही है, कृपया इंतजार करें.');
+  let uploadedPath=null;
+  try{
+    const uploaded=await uploadProduct(file);uploadedPath=uploaded.path;
+    const row={name,description,category,price,mrp,stock,image_url:uploaded.url,seller_id:state.seller.id,active:true,updated_at:new Date().toISOString()};
+    const {data,error}=await supabase.from('products').insert(row).select('id,name').single();
+    if(error)throw new Error('प्रोडक्ट डेटाबेस में सेव नहीं हुआ: '+error.message);
+    await loadProducts({renderAfter:false});
+    document.querySelector('#pname').value='';document.querySelector('#pdesc').value='';document.querySelector('#pcat').value='';document.querySelector('#pprice').value='';document.querySelector('#pmrp').value='';document.querySelector('#pstock').value='1';document.querySelector('#pfile').value='';
+    document.querySelector('#product-preview').innerHTML='<small>फोटो चुनने पर उसका preview यहाँ दिखेगा.</small>';
+    out.innerHTML=msg('सफलता! प्रोडक्ट और उसकी फोटो ऑनलाइन सेव हो गए. प्रोडक्ट ID: '+data.id,'success');
+  }catch(e){
+    if(uploadedPath){const {error:removeError}=await supabase.storage.from('product-images').remove([uploadedPath]);if(removeError)console.warn('Uploaded image cleanup failed:',removeError.message)}
+    out.innerHTML=msg(e.message||'प्रोडक्ट अपलोड नहीं हुआ. कृपया दोबारा कोशिश करें.','error');
+  }finally{button.disabled=false;button.textContent='फोटो अपलोड करें और प्रोडक्ट सेव करें'}
 }
 async function placeOrder(){
   const out=document.querySelector('#checkout-msg');const payload={customer_name:document.querySelector('#cname').value.trim(),mobile:document.querySelector('#cmobile').value.trim(),address:document.querySelector('#caddress').value.trim(),city:document.querySelector('#ccity').value.trim(),state:document.querySelector('#cstate').value.trim(),pincode:document.querySelector('#cpincode').value.trim(),items:state.cart.map(p=>({product_id:Number(p.id),quantity:Number(p.qty||1)}))};
@@ -170,7 +213,20 @@ function bindPage(){
   const verifyPhone=document.querySelector('#verify-phone-otp');if(verifyPhone)verifyPhone.onclick=async()=>{const m=document.querySelector('#phone-auth-msg'),token=document.querySelector('#auth-phone-otp').value.trim();try{const e=await verifyPhoneOtp(state.otpPhone,token);m.textContent=e?e.message:'Mobile verified.';if(!e)render()}catch(e){m.textContent=e.message||'OTP verification failed.'}};
   document.querySelector('#logout')?.addEventListener('click',async()=>{await supabase.auth.signOut();state.user=null;state.session=null;state.profile=null;state.seller=null;state.isAdmin=false;render()});
   document.querySelector('#seller-register')?.addEventListener('click',registerSeller);
-  document.querySelector('[data-action="add-product"]')?.addEventListener('click',()=>{document.querySelector('#seller-area').innerHTML=sellerProductForm();document.querySelector('#save-product').onclick=saveSellerProduct});
+  document.querySelector('[data-action="add-product"]')?.addEventListener('click',()=>{
+    const area=document.querySelector('#seller-area');area.innerHTML=sellerProductForm();
+    document.querySelector('#save-product').onclick=saveSellerProduct;
+    document.querySelector('#pfile').onchange=event=>{
+      const file=event.target.files?.[0],preview=document.querySelector('#product-preview');
+      if(!preview)return;
+      if(!file){preview.innerHTML='<small>फोटो चुनने पर उसका preview यहाँ दिखेगा.</small>';return}
+      const imageLike=(file.type||'').startsWith('image/')||/\\.(jpe?g|png|webp|heic|heif)$/i.test(file.name||'');
+      if(!imageLike){event.target.value='';preview.innerHTML=msg('कृपया image file चुनें.','error');return}
+      if(file.size>10*1024*1024){event.target.value='';preview.innerHTML=msg('फोटो 10 MB से छोटी रखें.','error');return}
+      if((file.type||'').includes('heic')){preview.innerHTML='<small>HEIC फोटो चुनी गई है. अपलोड के बाद ऐप में दिखना फोन/browser support पर निर्भर हो सकता है.</small>';return}
+      const reader=new FileReader();reader.onload=()=>{preview.innerHTML='<img alt="Product photo preview" style="max-width:160px;max-height:160px;object-fit:contain;border-radius:12px" src="'+reader.result+'">'};reader.readAsDataURL(file);
+    };
+  });
   document.querySelector('[data-action="seller-products"]')?.addEventListener('click',async()=>{const {data}=await supabase.from('products').select('*').eq('seller_id',state.seller.id).order('created_at',{ascending:false});document.querySelector('#seller-area').innerHTML=`<div class="card"><h3>My Products</h3>${(data||[]).map(p=>`<div class="list-row"><span><b>${esc(p.name)}</b><small>${esc(p.category)} • Stock ${p.stock}</small></span><b>${money(p.price)}</b></div>`).join('')||'<p>No products.</p>'}</div>`});
   document.querySelector('[data-action="seller-orders"]')?.addEventListener('click',async()=>{const {data}=await supabase.from('order_items').select('order_id,product_name,qty,price,seller_id,orders(order_no,status,created_at)').eq('seller_id',state.seller.id).order('id',{ascending:false});document.querySelector('#seller-area').innerHTML=`<div class="card"><h3>My Orders</h3>${(data||[]).map(x=>`<div class="list-row"><span><b>${esc(x.orders?.order_no||x.order_id)}</b><small>${esc(x.product_name)} × ${x.qty} • ${esc(x.orders?.status||'')}</small></span><b>${money(Number(x.price)*Number(x.qty))}</b></div>`).join('')||'<p>No seller orders.</p>'}</div>`});
   document.querySelector('[data-action="seller-earnings"]')?.addEventListener('click',async()=>{const {data}=await supabase.from('seller_payouts').select('*').eq('seller_id',state.seller.id).order('created_at',{ascending:false});const gross=(data||[]).reduce((s,x)=>s+Number(x.gross_amount||0),0),comm=(data||[]).reduce((s,x)=>s+Number(x.commission_amount||0),0),net=(data||[]).reduce((s,x)=>s+Number(x.net_amount||0),0);document.querySelector('#seller-area').innerHTML=`<div class="grid stats"><div class="stat"><span>Gross</span><b>${money(gross)}</b></div><div class="stat"><span>Commission</span><b>${money(comm)}</b></div><div class="stat"><span>Seller Net</span><b>${money(net)}</b></div></div>`});
