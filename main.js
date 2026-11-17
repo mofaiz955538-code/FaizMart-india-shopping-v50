@@ -136,7 +136,7 @@ async function registerSeller(){
 async function uploadProduct(file){
   if(!supabase||!state.user)throw new Error('पहले अपने खाते में Login करें.');
   if(!file)throw new Error('मोबाइल गैलरी से प्रोडक्ट की फोटो चुनें.');
-  const imageLike=['image/jpeg','image/png','image/webp'].includes(file.type)||/\\.(jpe?g|png|webp)$/i.test(file.name||'');
+  const imageLike=['image/jpeg','image/png','image/webp'].includes(file.type)||/\.(jpe?g|png|webp)$/i.test(file.name||'');
   if(!imageLike)throw new Error('कृपया JPG, PNG, WEBP फोटो चुनें.');
   if(file.size>6*1024*1024)throw new Error('फोटो 6 MB से छोटी रखें.');
   const safe=(file.name||'product-image').replace(/[^a-zA-Z0-9._-]/g,'_');
