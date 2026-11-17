@@ -209,10 +209,10 @@ async function placeOrder(){
   const out=document.querySelector('#checkout-msg'),button=document.querySelector('#confirm-order');
   if(!out||!button||!supabase||!state.user){if(out)out.innerHTML=msg('Order करने के लिए पहले Login करें.','error');return}
   const payload={customer_name:document.querySelector('#cname').value.trim(),mobile:document.querySelector('#cmobile').value.trim(),address:document.querySelector('#caddress').value.trim(),city:document.querySelector('#ccity').value.trim(),state:document.querySelector('#cstate').value.trim(),pincode:document.querySelector('#cpincode').value.trim(),items:state.cart.map(p=>({product_id:Number(p.id),quantity:Number(p.qty||1)}))};
-  const phoneDigits=payload.mobile.replace(/\\D/g,'');
+  const phoneDigits=payload.mobile.replace(/\D/g,'');
   if(!payload.customer_name||!payload.mobile||!payload.address){out.innerHTML=msg('नाम, मोबाइल और पूरा पता भरना जरूरी है.','error');return}
   if(phoneDigits.length!==10&&!(phoneDigits.length===12&&phoneDigits.startsWith('91'))){out.innerHTML=msg('10 अंकों का सही भारतीय मोबाइल नंबर भरें.','error');return}
-  if(payload.pincode&&!/^\\d{6}$/.test(payload.pincode)){out.innerHTML=msg('पिनकोड 6 अंकों का होना चाहिए.','error');return}
+  if(payload.pincode&&!/^\d{6}$/.test(payload.pincode)){out.innerHTML=msg('पिनकोड 6 अंकों का होना चाहिए.','error');return}
   if(!payload.items.length){out.innerHTML=msg('आपका Cart खाली है.','error');return}
   button.disabled=true;button.textContent='Order सेव हो रहा है…';out.innerHTML=msg('आपका COD order ऑनलाइन सेव हो रहा है. कृपया इंतजार करें.');
   try{
