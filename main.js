@@ -231,7 +231,7 @@ function bindPage(){
   const search=document.querySelector('#search');if(search)search.oninput=()=>{state.search=search.value;render();const el=document.querySelector('#search');el?.focus();el?.setSelectionRange(state.search.length,state.search.length)};
   const send=document.querySelector('#send-otp');if(send)send.onclick=async()=>{
     const email=document.querySelector('#auth-email').value.trim(),m=document.querySelector('#auth-msg');
-    if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)){m.textContent='सही Gmail / Email address भरें.';return}
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){m.textContent='सही Gmail / Email address भरें.';return}
     state.otpEmail=email;send.disabled=true;m.textContent='OTP भेजा जा रहा है…';
     try{const e=await sendOtp(email);m.textContent=e?'OTP नहीं भेजा गया: '+e.message:'Email OTP भेजने का अनुरोध सफल हुआ. Inbox और Spam देखें.'}
     catch(e){m.textContent='Email OTP error: '+(e.message||'कृपया दोबारा कोशिश करें.')}
@@ -239,7 +239,7 @@ function bindPage(){
   };
   const verify=document.querySelector('#verify-otp');if(verify)verify.onclick=async()=>{
     const token=document.querySelector('#auth-otp').value.trim(),m=document.querySelector('#auth-msg');
-    if(!/^\\d{6}$/.test(token)){m.textContent='6 अंकों का OTP भरें.';return}
+    if(!/^\d{6}$/.test(token)){m.textContent='6 अंकों का OTP भरें.';return}
     if(!state.otpEmail){m.textContent='पहले Email OTP भेजें.';return}
     verify.disabled=true;
     try{const e=await verifyOtp(state.otpEmail,token);m.textContent=e?'OTP verify नहीं हुआ: '+e.message:'Email verified.';if(!e)render()}
@@ -254,7 +254,7 @@ function bindPage(){
   };
   const verifyPhone=document.querySelector('#verify-phone-otp');if(verifyPhone)verifyPhone.onclick=async()=>{
     const m=document.querySelector('#phone-auth-msg'),token=document.querySelector('#auth-phone-otp').value.trim();
-    if(!/^\\d{6}$/.test(token)){m.textContent='6 अंकों का SMS OTP भरें.';return}
+    if(!/^\d{6}$/.test(token)){m.textContent='6 अंकों का SMS OTP भरें.';return}
     if(!state.otpPhone){m.textContent='पहले Mobile OTP भेजें.';return}
     verifyPhone.disabled=true;
     try{const e=await verifyPhoneOtp(state.otpPhone,token);m.textContent=e?'Mobile OTP verify नहीं हुआ: '+e.message:'Mobile number verified.';if(!e)render()}
