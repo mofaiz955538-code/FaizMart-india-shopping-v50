@@ -41,7 +41,7 @@ jobs:
 
       - name: Install Capacitor
         run: |
-          npm install @capacitor/core@7.4.3 @capacitor/cli@7.4.3 @capacitor/android@7.4.3
+          npm install @capacitor/core@7.4.3 @capacitor/cli@7.4.3 @capacitor/android@7.4.3 @capacitor/camera@7.0.1
 
       - name: Create Android project
         run: |
