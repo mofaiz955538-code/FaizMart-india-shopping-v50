@@ -49,6 +49,7 @@ jobs:
           npx cap add android
           for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
             mkdir -p "android/app/src/main/res/mipmap-${density}"
+            rm -f "android/app/src/main/res/mipmap-${density}/ic_launcher.png" "android/app/src/main/res/mipmap-${density}/ic_launcher_round.png" "android/app/src/main/res/mipmap-${density}/ic_launcher_foreground.png"
             cp public/assets/faizmart-logo.jpg "android/app/src/main/res/mipmap-${density}/ic_launcher.jpg"
             cp public/assets/faizmart-logo.jpg "android/app/src/main/res/mipmap-${density}/ic_launcher_round.jpg"
             cp public/assets/faizmart-logo.jpg "android/app/src/main/res/mipmap-${density}/ic_launcher_foreground.jpg"

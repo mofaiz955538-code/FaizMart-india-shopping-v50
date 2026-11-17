@@ -33,6 +33,7 @@ function render() {
   root.innerHTML = `<header><div class="topbar"><div class="brand"><img class="brand-logo" src="assets/faizmart-logo.jpg" alt="FAIZMART logo">FAIZMART INDIA SHOPPING</div><button class="menu" id="menu">☰</button></div>
     <nav id="nav"><button data-nav="home">Home</button><button data-nav="products">Products</button><button data-nav="orders">My Orders</button><button data-nav="seller">Seller Panel</button><button data-nav="admin">Admin</button><button data-nav="cart">Cart (${state.cart.reduce((n,p)=>n+(p.qty||1),0)})</button><button data-nav="auth">${state.user?'Account':'Login'}</button></nav></header>
     <main>${page()}</main><footer>FAIZMART INDIA SHOPPING • Online marketplace</footer>`;
+  document.querySelector('#app-splash')?.remove();
   document.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => { state.view=b.dataset.nav; render(); });
   document.querySelector('#menu')?.addEventListener('click',()=>document.querySelector('#nav').classList.toggle('open'));
   bindPage();
