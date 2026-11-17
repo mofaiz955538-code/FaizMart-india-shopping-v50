@@ -150,7 +150,7 @@ async function pickProductPhoto(){
     const out=document.querySelector('#product-msg');if(out)out.innerHTML=msg('फोटो चुन ली गई है. अब प्रोडक्ट सेव करें.','success');
   }catch(e){
     const cancelled=/cancel|canceled|cancelled/i.test(e?.message||'');
-    if(!cancelled){const out=document.querySelector('#product-msg');if(out)out.innerHTML=msg('गैलरी नहीं खुली: '+(e.message||'कृपया नीचे वाले फोटो विकल्प का उपयोग करें.'),'error');}
+    if(!cancelled){const input=document.querySelector('#pfile');const out=document.querySelector('#product-msg');if(input){if(out)out.innerHTML=msg('गैलरी बटन नहीं खुला. नीचे वाला फोटो विकल्प खोल रहे हैं…','info');input.click();}else if(out)out.innerHTML=msg('गैलरी नहीं खुली: '+(e.message||'कृपया दोबारा कोशिश करें.'),'error');}
   }
 }
 async function uploadProduct(file){
@@ -206,10 +206,23 @@ async function saveSellerProduct(){
   }finally{button.disabled=false;button.textContent='फोटो अपलोड करें और प्रोडक्ट सेव करें'}
 }
 async function placeOrder(){
-  const out=document.querySelector('#checkout-msg');const payload={customer_name:document.querySelector('#cname').value.trim(),mobile:document.querySelector('#cmobile').value.trim(),address:document.querySelector('#caddress').value.trim(),city:document.querySelector('#ccity').value.trim(),state:document.querySelector('#cstate').value.trim(),pincode:document.querySelector('#cpincode').value.trim(),items:state.cart.map(p=>({product_id:Number(p.id),quantity:Number(p.qty||1)}))};
-  if(!payload.customer_name||!payload.mobile||!payload.address){out.innerHTML=msg('Name, mobile और address जरूरी हैं.','error');return}
-  const {data,error}=await supabase.rpc('place_order',{payload}); if(error){out.innerHTML=msg(error.message,'error');return}
-  state.cart=[];saveCart();await loadProducts({renderAfter:false});await loadOrders();state.view='orders';render();const notice=document.querySelector('#orders-msg');if(notice)notice.innerHTML=msg(`Order ${data.order_number||data.order_no||''} placed successfully. Total ${money(data.total)}.`,`success`);
+  const out=document.querySelector('#checkout-msg'),button=document.querySelector('#confirm-order');
+  if(!out||!button||!supabase||!state.user){if(out)out.innerHTML=msg('Order करने के लिए पहले Login करें.','error');return}
+  const payload={customer_name:document.querySelector('#cname').value.trim(),mobile:document.querySelector('#cmobile').value.trim(),address:document.querySelector('#caddress').value.trim(),city:document.querySelector('#ccity').value.trim(),state:document.querySelector('#cstate').value.trim(),pincode:document.querySelector('#cpincode').value.trim(),items:state.cart.map(p=>({product_id:Number(p.id),quantity:Number(p.qty||1)}))};
+  const phoneDigits=payload.mobile.replace(/\\D/g,'');
+  if(!payload.customer_name||!payload.mobile||!payload.address){out.innerHTML=msg('नाम, मोबाइल और पूरा पता भरना जरूरी है.','error');return}
+  if(phoneDigits.length!==10&&!(phoneDigits.length===12&&phoneDigits.startsWith('91'))){out.innerHTML=msg('10 अंकों का सही भारतीय मोबाइल नंबर भरें.','error');return}
+  if(payload.pincode&&!/^\\d{6}$/.test(payload.pincode)){out.innerHTML=msg('पिनकोड 6 अंकों का होना चाहिए.','error');return}
+  if(!payload.items.length){out.innerHTML=msg('आपका Cart खाली है.','error');return}
+  button.disabled=true;button.textContent='Order सेव हो रहा है…';out.innerHTML=msg('आपका COD order ऑनलाइन सेव हो रहा है. कृपया इंतजार करें.');
+  try{
+    const {data,error}=await supabase.rpc('place_order',{payload});
+    if(error)throw error;
+    if(!data?.id)throw new Error('Order response नहीं मिला. Orders में जाँचें; दोबारा तुरंत order न करें.');
+    state.cart=[];saveCart();await loadProducts({renderAfter:false});await loadOrders();state.view='orders';render();
+    const notice=document.querySelector('#orders-msg');if(notice)notice.innerHTML=msg(`Order ${data.order_number||data.order_no||''} सफलतापूर्वक दर्ज हुआ. कुल ${money(data.total)}.`,'success');
+  }catch(e){out.innerHTML=msg(e.message||'Order नहीं हो पाया. कृपया दोबारा कोशिश करें.','error')}
+  finally{const current=document.querySelector('#confirm-order');if(current){current.disabled=false;current.textContent='Confirm COD Order'}}
 }
 async function saveSettings(){const out=document.querySelector('#admin-msg');const rate=Number(document.querySelector('#commission').value),free=Number(document.querySelector('#free-delivery').value),flat=Number(document.querySelector('#flat-delivery').value),mode=document.querySelector('#delivery-mode').value,company=document.querySelector('#company-name').value.trim();
   if(rate<0||rate>100||free<0||flat<0){out.innerHTML=msg('Settings values सही भरें.','error');return}
@@ -273,8 +286,8 @@ function bindPage(){
       if(!preview)return;
       if(!file){preview.innerHTML='<small>फोटो चुनने पर उसका preview यहाँ दिखेगा.</small>';return}
       const imageLike=(file.type||'').startsWith('image/')||/\.(jpe?g|png|webp|heic|heif)$/i.test(file.name||'');
-      if(!imageLike){event.target.value='';preview.innerHTML=msg('कृपया image file चुनें.','error');return}
-      if(file.size>6*1024*1024){event.target.value='';preview.innerHTML=msg('फोटो 6 MB से छोटी रखें.','error');return}
+      if(!imageLike){event.target.value='';state.selectedProductPhoto=null;preview.innerHTML=msg('कृपया image file चुनें.','error');return}
+      if(file.size>6*1024*1024){event.target.value='';state.selectedProductPhoto=null;preview.innerHTML=msg('फोटो 6 MB से छोटी रखें.','error');return}
       if(file.type&&!['image/jpeg','image/png','image/webp'].includes(file.type)){event.target.value='';state.selectedProductPhoto=null;preview.innerHTML=msg('JPG, PNG या WEBP फोटो चुनें. HEIC फोटो के लिए ऊपर वाला गैलरी बटन इस्तेमाल करें.','error');return}
       const reader=new FileReader();reader.onload=()=>{preview.innerHTML='<img alt="Product photo preview" style="max-width:160px;max-height:160px;object-fit:contain;border-radius:12px" src="'+reader.result+'">'};reader.readAsDataURL(file);
     };
