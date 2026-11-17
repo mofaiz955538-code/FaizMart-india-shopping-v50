@@ -222,7 +222,7 @@ function bindPage(){
       const file=event.target.files?.[0],preview=document.querySelector('#product-preview');
       if(!preview)return;
       if(!file){preview.innerHTML='<small>फोटो चुनने पर उसका preview यहाँ दिखेगा.</small>';return}
-      const imageLike=(file.type||'').startsWith('image/')||/\\.(jpe?g|png|webp|heic|heif)$/i.test(file.name||'');
+      const imageLike=(file.type||'').startsWith('image/')||/\.(jpe?g|png|webp|heic|heif)$/i.test(file.name||'');
       if(!imageLike){event.target.value='';preview.innerHTML=msg('कृपया image file चुनें.','error');return}
       if(file.size>6*1024*1024){event.target.value='';preview.innerHTML=msg('फोटो 6 MB से छोटी रखें.','error');return}
       if(file.type&&!['image/jpeg','image/png','image/webp'].includes(file.type)){event.target.value='';preview.innerHTML=msg('JPG, PNG या WEBP फोटो चुनें. HEIC फोटो को पहले JPG में बदलें.','error');return}
