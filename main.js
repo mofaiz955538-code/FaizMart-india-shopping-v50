@@ -103,7 +103,7 @@ async function loadProducts(){
     supabase.from('products').select('*').eq('active',true).order('created_at',{ascending:false}),
     supabase.from('categories').select('*').eq('active',true).order('name'),
     supabase.from('v50_delivery_settings').select('*').eq('id',1).maybeSingle(),
-    supabase.from('store_settings').select('admin_commission_rate').eq('id',1).maybeSingle()
+    supabase.from('v50_store_settings').select('admin_commission_rate').eq('id',1).maybeSingle()
   ]);
   const firstError=productsResult.error||categoriesResult.error||deliveryResult.error||storeResult.error;
   state.backendError=firstError?firstError.message:'';
@@ -144,7 +144,7 @@ async function placeOrder(){
 async function saveSettings(){const out=document.querySelector('#admin-msg');const rate=Number(document.querySelector('#commission').value),free=Number(document.querySelector('#free-delivery').value),flat=Number(document.querySelector('#flat-delivery').value),mode=document.querySelector('#delivery-mode').value,company=document.querySelector('#company-name').value.trim();
   if(rate<0||rate>100||free<0||flat<0){out.innerHTML=msg('Settings values सही भरें.','error');return}
   const {error}=await supabase.from('v50_delivery_settings').update({mode,flat_charge:flat,free_delivery_above:free,company_name:company,updated_at:new Date().toISOString()}).eq('id',1);if(error){out.innerHTML=msg(error.message,'error');return}
-  const {error:commissionError}=await supabase.from('store_settings').update({admin_commission_rate:rate,updated_at:new Date().toISOString()}).eq('id',1);if(commissionError){out.innerHTML=msg('Delivery saved, but commission setting failed: '+commissionError.message,'error');return}
+  const {error:commissionError}=await supabase.from('v50_store_settings').update({admin_commission_rate:rate,updated_at:new Date().toISOString()}).eq('id',1);if(commissionError){out.innerHTML=msg('Delivery saved, but commission setting failed: '+commissionError.message,'error');return}
   state.settings={...state.settings,commission:rate,freeDelivery:free,flatDelivery:flat,deliveryMode:mode,companyName:company};out.innerHTML=msg('Delivery and admin commission settings saved online. New seller registrations will use this commission rate.','success');
 }
 async function updateSellerStatus(id,status){const {error}=await supabase.from('sellers').update({status,updated_at:new Date().toISOString()}).eq('id',id);if(error)alert(error.message);else{await loadAdmin();render()}}
