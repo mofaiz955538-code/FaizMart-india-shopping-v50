@@ -209,10 +209,38 @@ function bindPage(){
   document.querySelectorAll('[data-qty]').forEach(b=>b.onchange=()=>{const i=Number(b.dataset.qty),item=state.cart[i],max=Math.max(1,Number(item?.stock)||1);state.cart[i].qty=Math.max(1,Math.min(max,99,Number(b.value)||1));saveCart();render()});
   document.querySelectorAll('[data-wish]').forEach(b=>b.onclick=()=>toggleWish(b.dataset.wish));
   const search=document.querySelector('#search');if(search)search.oninput=()=>{state.search=search.value;render();const el=document.querySelector('#search');el?.focus();el?.setSelectionRange(state.search.length,state.search.length)};
-  const send=document.querySelector('#send-otp');if(send)send.onclick=async()=>{const email=document.querySelector('#auth-email').value.trim(),m=document.querySelector('#auth-msg');if(!email){m.textContent='Email required.';return}state.otpEmail=email;send.disabled=true;const e=await sendOtp(email);m.textContent=e?e.message:'OTP sent. Inbox/Spam check करें.';send.disabled=false};
-  const verify=document.querySelector('#verify-otp');if(verify)verify.onclick=async()=>{const token=document.querySelector('#auth-otp').value.trim(),m=document.querySelector('#auth-msg');const e=await verifyOtp(state.otpEmail,token);m.textContent=e?e.message:'Verified.';if(!e)render()};
-  const sendPhone=document.querySelector('#send-phone-otp');if(sendPhone)sendPhone.onclick=async()=>{const m=document.querySelector('#phone-auth-msg');try{state.otpPhone=normalizeIndianPhone(document.querySelector('#auth-phone').value);sendPhone.disabled=true;const e=await sendPhoneOtp(state.otpPhone);m.textContent=e?e.message:'SMS OTP sent. Message inbox check करें.'; }catch(e){m.textContent=e.message||'SMS OTP could not be sent.'}finally{sendPhone.disabled=false}};
-  const verifyPhone=document.querySelector('#verify-phone-otp');if(verifyPhone)verifyPhone.onclick=async()=>{const m=document.querySelector('#phone-auth-msg'),token=document.querySelector('#auth-phone-otp').value.trim();try{const e=await verifyPhoneOtp(state.otpPhone,token);m.textContent=e?e.message:'Mobile verified.';if(!e)render()}catch(e){m.textContent=e.message||'OTP verification failed.'}};
+  const send=document.querySelector('#send-otp');if(send)send.onclick=async()=>{
+    const email=document.querySelector('#auth-email').value.trim(),m=document.querySelector('#auth-msg');
+    if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)){m.textContent='सही Gmail / Email address भरें.';return}
+    state.otpEmail=email;send.disabled=true;m.textContent='OTP भेजा जा रहा है…';
+    try{const e=await sendOtp(email);m.textContent=e?'OTP नहीं भेजा गया: '+e.message:'Email OTP भेजने का अनुरोध सफल हुआ. Inbox और Spam देखें.'}
+    catch(e){m.textContent='Email OTP error: '+(e.message||'कृपया दोबारा कोशिश करें.')}
+    finally{send.disabled=false}
+  };
+  const verify=document.querySelector('#verify-otp');if(verify)verify.onclick=async()=>{
+    const token=document.querySelector('#auth-otp').value.trim(),m=document.querySelector('#auth-msg');
+    if(!/^\\d{6}$/.test(token)){m.textContent='6 अंकों का OTP भरें.';return}
+    if(!state.otpEmail){m.textContent='पहले Email OTP भेजें.';return}
+    verify.disabled=true;
+    try{const e=await verifyOtp(state.otpEmail,token);m.textContent=e?'OTP verify नहीं हुआ: '+e.message:'Email verified.';if(!e)render()}
+    catch(e){m.textContent='Verification error: '+(e.message||'OTP दोबारा जाँचें.')}
+    finally{verify.disabled=false}
+  };
+  const sendPhone=document.querySelector('#send-phone-otp');if(sendPhone)sendPhone.onclick=async()=>{
+    const m=document.querySelector('#phone-auth-msg');
+    try{state.otpPhone=normalizeIndianPhone(document.querySelector('#auth-phone').value);sendPhone.disabled=true;m.textContent='SMS OTP भेजा जा रहा है…';const e=await sendPhoneOtp(state.otpPhone);m.textContent=e?'SMS OTP नहीं भेजा गया: '+e.message:'SMS OTP भेजने का अनुरोध सफल हुआ. Messages देखें.'}
+    catch(e){m.textContent='Mobile OTP error: '+(e.message||'SMS provider settings जाँचें.')}
+    finally{sendPhone.disabled=false}
+  };
+  const verifyPhone=document.querySelector('#verify-phone-otp');if(verifyPhone)verifyPhone.onclick=async()=>{
+    const m=document.querySelector('#phone-auth-msg'),token=document.querySelector('#auth-phone-otp').value.trim();
+    if(!/^\\d{6}$/.test(token)){m.textContent='6 अंकों का SMS OTP भरें.';return}
+    if(!state.otpPhone){m.textContent='पहले Mobile OTP भेजें.';return}
+    verifyPhone.disabled=true;
+    try{const e=await verifyPhoneOtp(state.otpPhone,token);m.textContent=e?'Mobile OTP verify नहीं हुआ: '+e.message:'Mobile number verified.';if(!e)render()}
+    catch(e){m.textContent='Mobile verification error: '+(e.message||'OTP दोबारा जाँचें.')}
+    finally{verifyPhone.disabled=false}
+  };
   document.querySelector('#logout')?.addEventListener('click',async()=>{await supabase.auth.signOut();state.user=null;state.session=null;state.profile=null;state.seller=null;state.isAdmin=false;render()});
   document.querySelector('#seller-register')?.addEventListener('click',registerSeller);
   document.querySelector('[data-action="add-product"]')?.addEventListener('click',()=>{
