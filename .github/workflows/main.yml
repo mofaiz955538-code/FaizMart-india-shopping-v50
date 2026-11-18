@@ -179,6 +179,16 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Restore Gradle dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: faizmart-v50-gradle-${{ runner.os }}-v1
+          restore-keys: |
+            faizmart-v50-gradle-${{ runner.os }}-
+
       - name: Restore stable Android debug signing key
         uses: actions/cache@v4
         with:
@@ -191,6 +201,7 @@ jobs:
           if [ ! -s ~/.android/debug.keystore ]; then
             keytool -genkeypair -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
+          keytool -list -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey | grep "SHA256:"
 
       - name: Prepare persistent release signing
         env:
@@ -233,7 +244,7 @@ jobs:
           fi
           test -s "$APK"
           "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt" dump badging "$APK" | grep -E "package: name='com.faizmart.india.shopping.v50'|application-label:'FAIZMART INDIA SHOPPING'"
-          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify "$APK"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --print-certs "$APK"
 
       - name: Package V50 source ZIP
         run: |
