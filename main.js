@@ -304,7 +304,7 @@ function bindPage(){
   const sendPhone=document.querySelector('#send-phone-otp');if(sendPhone)sendPhone.onclick=async()=>{
     const m=document.querySelector('#phone-auth-msg');
     try{state.otpPhone=normalizeIndianPhone(document.querySelector('#auth-phone').value);sendPhone.disabled=true;m.textContent='SMS OTP भेजा जा रहा है…';const e=await sendPhoneOtp(state.otpPhone);m.textContent=e?'SMS OTP नहीं भेजा गया: '+e.message:'SMS OTP भेजने का अनुरोध सफल हुआ. Messages देखें.'}
-    catch(e){m.textContent='Mobile OTP error: '+(e.message||'SMS provider settings जाँचें.')}
+    catch(e){const detail=String(e?.message||'');m.textContent=/phone_provider_disabled|unsupported phone provider/i.test(detail)?'मोबाइल OTP अभी चालू नहीं है: Supabase में SMS provider (जैसे Twilio) जोड़ना बाकी है. Provider सेट होने तक SMS नहीं आएगा.':'Mobile OTP error: '+(detail||'SMS provider settings जाँचें.')}
     finally{sendPhone.disabled=false}
   };
   const verifyPhone=document.querySelector('#verify-phone-otp');if(verifyPhone)verifyPhone.onclick=async()=>{
