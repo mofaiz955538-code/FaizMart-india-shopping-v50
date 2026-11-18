@@ -244,7 +244,23 @@ jobs:
           fi
           test -s "$APK"
           "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt" dump badging "$APK" | grep -E "package: name='com.faizmart.india.shopping.v50'|application-label:'FAIZMART INDIA SHOPPING'"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt" dump badging "$APK" | grep -E "^(sdkVersion|targetSdkVersion):"
           "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --print-certs "$APK"
+
+      - name: Install and launch APK on Android 14 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          script: |
+            set -e
+            APK="$(find android/app/build/outputs/apk -name "*.apk" -type f | head -n 1)"
+            test -s "$APK"
+            adb install -r "$APK"
+            adb shell monkey -p com.faizmart.india.shopping.v50 1
+            echo "FAIZMART APK installed and launch intent executed on Android API 34 emulator"
 
       - name: Package V50 source ZIP
         run: |
