@@ -155,7 +155,7 @@ async function registerSeller(){
 async function prepareProductImage(sourceFile){
   if(!sourceFile)throw new Error('गैलरी से फोटो चुनें.');
   const type=(sourceFile.type||'').toLowerCase(),name=(sourceFile.name||'').toLowerCase();
-  const heic=type==='image/heic'||type==='image/heif'||/\\.(heic|heif)$/i.test(name);
+  const heic=type==='image/heic'||type==='image/heif'||name.endsWith('.heic')||name.endsWith('.heif');
   if(!['image/jpeg','image/png','image/webp'].includes(type)&&!heic)throw new Error('कृपया JPG, PNG या WEBP फोटो चुनें.');
   let output=sourceFile;
   if(typeof createImageBitmap==='function'){
