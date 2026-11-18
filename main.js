@@ -92,19 +92,23 @@ function orders(){
 }
 
 async function sendOtp(email){const {error}=await supabase.auth.signInWithOtp({email,options:{shouldCreateUser:true}});return error}
-async function verifyOtp(email,token){const {data,error}=await supabase.auth.verifyOtp({email,token,type:'email'});if(!error){state.session=data.session;state.user=data.user;await hydrateUser()}return error}
+async function verifyOtp(email,token){const {data,error}=await supabase.auth.verifyOtp({email,token,type:'email'});if(!error){state.session=data.session;state.user=data.user}return error}
 function normalizeIndianPhone(value){const digits=String(value||'').replace(/\D/g,'');if(digits.length===10)return '+91'+digits;if(digits.length===12&&digits.startsWith('91'))return '+'+digits;if(String(value||'').trim().startsWith('+')&&digits.length>=10&&digits.length<=15)return '+'+digits;throw new Error('Valid mobile number with country code is required.')}
 async function sendPhoneOtp(phone){const {error}=await supabase.auth.signInWithOtp({phone,options:{shouldCreateUser:true}});return error}
-async function verifyPhoneOtp(phone,token){const {data,error}=await supabase.auth.verifyOtp({phone,token,type:'sms'});if(!error){state.session=data.session;state.user=data.user;await hydrateUser()}return error}
+async function verifyPhoneOtp(phone,token){const {data,error}=await supabase.auth.verifyOtp({phone,token,type:'sms'});if(!error){state.session=data.session;state.user=data.user}return error}
 async function hydrateUser(){
   if(!supabase||!state.user)return;
-  const [{data:profile},{data:seller},{data:addrs}] = await Promise.all([
+  const [{data:profile,error:profileError},{data:seller,error:sellerError},{data:addrs,error:addressError}] = await Promise.all([
     supabase.from('profiles').select('*').eq('id',state.user.id).maybeSingle(),
     supabase.from('sellers').select('*').eq('user_id',state.user.id).maybeSingle(),
     supabase.from('addresses').select('*').eq('user_id',state.user.id).order('created_at',{ascending:false})
   ]);
+  const accountError=profileError||sellerError||addressError;
+  if(accountError)throw new Error('Account data: '+accountError.message);
   state.profile=profile; state.seller=seller; state.addresses=addrs||[];
-  const {data:isAdmin}=await supabase.rpc('is_admin'); state.isAdmin=!!isAdmin;
+  const {data:isAdmin,error:adminError}=await supabase.rpc('is_admin');
+  if(adminError)throw new Error('Admin permission check: '+adminError.message);
+  state.isAdmin=!!isAdmin;
   if(state.isAdmin) await loadAdmin();
   await loadWishlist(); await loadOrders();
 }
@@ -130,15 +134,18 @@ async function loadProducts({renderAfter=true}={}){
     if(renderAfter)render();
   }
 }
-async function loadWishlist(){if(!supabase||!state.user)return;const {data}=await supabase.from('wishlists').select('product_id').eq('user_id',state.user.id);state.wishlist=new Set((data||[]).map(x=>String(x.product_id)));}
-async function loadOrders(){if(!supabase||!state.user)return;const {data}=await supabase.from('orders').select('*').eq('user_id',state.user.id).order('created_at',{ascending:false});state.orders=data||[];}
+async function loadWishlist(){if(!supabase||!state.user)return;const {data,error}=await supabase.from('wishlists').select('product_id').eq('user_id',state.user.id);if(error)throw new Error('Wishlist: '+error.message);state.wishlist=new Set((data||[]).map(x=>String(x.product_id)));}
+async function loadOrders(){if(!supabase||!state.user)return;const {data,error}=await supabase.from('orders').select('*').eq('user_id',state.user.id).order('created_at',{ascending:false});if(error)throw new Error('Orders: '+error.message);state.orders=data||[];}
 async function loadAdmin(){
   if(!state.isAdmin)return;
-  const [{data:orders},{data:sellers},{data:comm}]=await Promise.all([
+  const [{data:orders,error:ordersError},{data:sellers,error:sellersError},{data:comm,error:commissionError}]=await Promise.all([
     supabase.from('orders').select('*').order('created_at',{ascending:false}),
     supabase.from('sellers').select('*').order('created_at',{ascending:false}),
     supabase.from('seller_payouts').select('*').order('created_at',{ascending:false})
-  ]); state.adminOrders=orders||[];state.adminSellers=sellers||[];state.adminCommissions=comm||[];
+  ]);
+  const adminDataError=ordersError||sellersError||commissionError;
+  if(adminDataError)throw new Error('Admin data: '+adminDataError.message);
+  state.adminOrders=orders||[];state.adminSellers=sellers||[];state.adminCommissions=comm||[];
 }
 async function registerSeller(){
   const data={business_name:document.querySelector('#shop').value.trim(),owner_name:document.querySelector('#owner').value.trim(),phone:document.querySelector('#smobile').value.trim(),email:document.querySelector('#semail').value.trim()}; const out=document.querySelector('#seller-msg');
