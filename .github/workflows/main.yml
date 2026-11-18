@@ -94,14 +94,14 @@ jobs:
           with open(path, encoding="utf-8") as f:
               gradle = f.read()
           version_code = int(os.environ.get("GITHUB_RUN_NUMBER", "1"))
-          if re.search(r"\\bversionCode\\s+\\d+", gradle):
-              gradle = re.sub(r"(\\bversionCode\\s+)\\d+", rf"\\g<1>{version_code}", gradle, count=1)
+          if re.search(r"\bversionCode\s+\d+", gradle):
+              gradle = re.sub(r"(\bversionCode\s+)\d+", rf"\g<1>{version_code}", gradle, count=1)
           else:
-              gradle, count = re.subn(r"(defaultConfig\\s*\\{)", rf"\\g<1>\\n        versionCode {version_code}", gradle, count=1)
+              gradle, count = re.subn(r"(defaultConfig\s*\{)", rf"\g<1>\n        versionCode {version_code}", gradle, count=1)
               if count != 1:
                   raise SystemExit("Could not set Android versionCode")
-          if re.search(r'\\bversionName\\s+"[^"]+"', gradle):
-              gradle = re.sub(r'\\bversionName\\s+"[^"]+"', f'versionName "50.0.{version_code}"', gradle, count=1)
+          if re.search(r'\bversionName\s+"[^"]+"', gradle):
+              gradle = re.sub(r'\bversionName\s+"[^"]+"', f'versionName "50.0.{version_code}"', gradle, count=1)
           with open(path, "w", encoding="utf-8") as f:
               f.write(gradle)
           print(f"Configured versionCode={version_code}, versionName=50.0.{version_code}")
