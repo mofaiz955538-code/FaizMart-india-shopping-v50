@@ -54,28 +54,37 @@ jobs:
           set -e
           npx cap init "FAIZMART INDIA SHOPPING" "com.faizmart.india.shopping.v50" --web-dir dist
           npx cap add android
-          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
-            mkdir -p "android/app/src/main/res/mipmap-${density}"
-            cp public/assets/faizmart-logo.jpg "android/app/src/main/res/mipmap-${density}/ic_launcher.png"
-            cp public/assets/faizmart-logo.jpg "android/app/src/main/res/mipmap-${density}/ic_launcher_round.png"
-            cp public/assets/faizmart-logo.jpg "android/app/src/main/res/mipmap-${density}/ic_launcher_foreground.png"
-          done
-          mkdir -p android/app/src/main/res/mipmap-anydpi-v26 android/app/src/main/res/values
-          cat > android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
-          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-              <background android:drawable="@color/faizmart_icon_background" />
-              <foreground android:drawable="@mipmap/ic_launcher_foreground" />
-          </adaptive-icon>
-          EOF
-          cat > android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml <<'EOF'
-          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-              <background android:drawable="@color/faizmart_icon_background" />
-              <foreground android:drawable="@mipmap/ic_launcher_foreground" />
-          </adaptive-icon>
-          EOF
-          cat > android/app/src/main/res/values/faizmart_colors.xml <<'EOF'
-          <resources><color name="faizmart_icon_background">#FFFFFF</color></resources>
-          EOF
+          python3 -m pip install --quiet Pillow
+          python3 - <<'PY'
+          from PIL import Image, ImageDraw
+          import os, re, xml.etree.ElementTree as ET
+          source = Image.open("public/assets/faizmart-logo.jpg").convert("RGBA")
+          sizes = {"mdpi":48, "hdpi":72, "xhdpi":96, "xxhdpi":144, "xxxhdpi":192}
+          for density, size in sizes.items():
+              folder = f"android/app/src/main/res/mipmap-{density}"
+              os.makedirs(folder, exist_ok=True)
+              icon = source.copy()
+              icon.thumbnail((size, size), Image.Resampling.LANCZOS)
+              canvas = Image.new("RGBA", (size, size), "white")
+              canvas.alpha_composite(icon, ((size-icon.width)//2, (size-icon.height)//2))
+              canvas.convert("RGB").save(f"{folder}/ic_launcher.png", "PNG")
+              mask = Image.new("L", (size, size), 0)
+              ImageDraw.Draw(mask).ellipse((0, 0, size-1, size-1), fill=255)
+              round_icon = canvas.copy()
+              round_icon.putalpha(mask)
+              round_icon.save(f"{folder}/ic_launcher_round.png", "PNG")
+              fg_size = int(size * 1.5)
+              fg = Image.new("RGBA", (fg_size, fg_size), (0,0,0,0))
+              logo = source.copy()
+              logo.thumbnail((int(fg_size*.66), int(fg_size*.66)), Image.Resampling.LANCZOS)
+              fg.alpha_composite(logo, ((fg_size-logo.width)//2, (fg_size-logo.height)//2))
+              fg.save(f"{folder}/ic_launcher_foreground.png", "PNG")
+          os.makedirs("android/app/src/main/res/mipmap-anydpi-v26", exist_ok=True)
+          os.makedirs("android/app/src/main/res/values", exist_ok=True)
+          open("android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml","w").write("""<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@color/faizmart_icon_background"/><foreground android:drawable="@mipmap/ic_launcher_foreground"/></adaptive-icon>""")
+          open("android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml","w").write("""<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@color/faizmart_icon_background"/><foreground android:drawable="@mipmap/ic_launcher_foreground"/></adaptive-icon>""")
+          open("android/app/src/main/res/values/faizmart_colors.xml","w").write("<resources><color name='faizmart_icon_background'>#FFFFFF</color></resources>")
+          PY
           npx cap sync android
           npx cap copy android
           python3 - <<'PY'
