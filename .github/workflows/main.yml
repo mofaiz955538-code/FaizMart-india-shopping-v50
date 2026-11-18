@@ -135,7 +135,7 @@ jobs:
           """
           if "signingConfigs {" not in gradle:
               with open(path, "a", encoding="utf-8") as f:
-                  f.write("\\n" + signing)
+                  f.write("\n" + signing)
           print("Prepared optional persistent release signing in app/build.gradle")
           PY
 
