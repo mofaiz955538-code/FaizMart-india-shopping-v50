@@ -45,7 +45,7 @@ jobs:
 
       - name: Create Android project
         run: |
-          npx cap init "FAIZMART INDIA SHOPPING" "com.faizmart.india.shopping" --web-dir dist
+          npx cap init "FAIZMART INDIA SHOPPING" "com.faizmart.india.shopping.v50" --web-dir dist
           npx cap add android
           for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
             mkdir -p "android/app/src/main/res/mipmap-${density}"
