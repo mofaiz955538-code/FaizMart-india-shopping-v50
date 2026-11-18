@@ -146,7 +146,6 @@ jobs:
           java-version: '21'
 
       - name: Prepare persistent release signing
-        if: ${{ secrets.FAIZMART_KEYSTORE_BASE64 != '' }}
         env:
           FAIZMART_KEYSTORE_BASE64: ${{ secrets.FAIZMART_KEYSTORE_BASE64 }}
           FAIZMART_KEYSTORE_PASSWORD: ${{ secrets.FAIZMART_KEYSTORE_PASSWORD }}
@@ -154,11 +153,16 @@ jobs:
           FAIZMART_KEY_PASSWORD: ${{ secrets.FAIZMART_KEY_PASSWORD }}
         run: |
           set -e
-          echo "$FAIZMART_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/faizmart-release.jks"
-          echo "FAIZMART_KEYSTORE_FILE=$RUNNER_TEMP/faizmart-release.jks" >> "$GITHUB_ENV"
-          echo "FAIZMART_KEYSTORE_PASSWORD=$FAIZMART_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
-          echo "FAIZMART_KEY_ALIAS=$FAIZMART_KEY_ALIAS" >> "$GITHUB_ENV"
-          echo "FAIZMART_KEY_PASSWORD=$FAIZMART_KEY_PASSWORD" >> "$GITHUB_ENV"
+          if [ -n "$FAIZMART_KEYSTORE_BASE64" ]; then
+            echo "$FAIZMART_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/faizmart-release.jks"
+            echo "FAIZMART_KEYSTORE_FILE=$RUNNER_TEMP/faizmart-release.jks" >> "$GITHUB_ENV"
+            echo "FAIZMART_KEYSTORE_PASSWORD=$FAIZMART_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "FAIZMART_KEY_ALIAS=$FAIZMART_KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "FAIZMART_KEY_PASSWORD=$FAIZMART_KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "Persistent release key loaded"
+          else
+            echo "Release key not configured; building debug APK for validation"
+          fi
 
       - name: Build APK
         working-directory: android
