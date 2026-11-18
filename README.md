@@ -1,33 +1,47 @@
 # FAIZMART INDIA SHOPPING — V50
 
-APK-buildable Android shopping app backed by the live Supabase project.
+Android e-commerce marketplace app for customers, sellers and admin, using the live Supabase project.
 
-## Connected application features
-- Live product and category catalog from Supabase
-- Customer email OTP authentication
-- Mobile OTP request and verification code in the app (SMS delivery requires Supabase Phone Auth plus an SMS provider)
-- Customer cart saved on the device between app sessions
-- COD order placement through a database RPC, with server-side price and stock checks
-- Customer order history
+## Customer shopping
+- Live product and category catalogue from Supabase
+- Product search and category filters
+- Add to cart, quantity controls and cart saved on the device
+- Checkout with saved delivery address and COD
+- Server-side order creation checks product availability, current price and stock, then deducts stock
+- Customer order history and status
+- Wishlist
+
+## Seller marketplace
+- Email OTP sign-in; mobile OTP UI is present
 - Seller registration and admin approval
-- Seller product creation with product-image upload to Supabase Storage
-- Admin seller/order management, delivery settings, and 10% default commission setting
-- GitHub Actions workflow that builds a debug APK artifact
+- Approved sellers can add products with phone-gallery photos
+- Product photos are resized/compressed before upload to the public `product-images` Supabase Storage bucket
+- Seller can edit product name, description, category, price, MRP, stock and active/hidden status
+- Seller can view own products, orders and earnings
 
-## Phone OTP: testing and production
-- To test without paying for SMS, configure a test phone number and fixed OTP code in Supabase Dashboard → Authentication → Providers → Phone. This is only for the exact test number/code configured there; it does not send real SMS.
-- For customer-wide live OTP, enable Phone provider and configure a supported SMS provider (for example Twilio, Vonage, or MessageBird) in Supabase Auth. Provider account credentials must be entered privately in the Supabase dashboard, never committed to GitHub or shared in chat. SMS provider charges and India TRAI/DLT requirements must be checked before launch.
-- The app already calls Supabase `signInWithOtp({ phone })` and `verifyOtp({ phone, token, type: 'sms' })`; a successful send cannot be verified until the provider is configured.
-- Configure a production email sender/SMTP and verify email OTP delivery.
+## Admin
+- Admin role is checked in Supabase, not taken from user-editable profile metadata
+- Seller approval / suspension
+- Order status management
+- Delivery charge settings (flat fee and free-delivery threshold)
+- Default marketplace commission is 10%; seller commissions and payouts are recorded when orders are placed
 
-## Brand logo
-The current repository includes `public/assets/faizmart-logo.jpg`. The web header and in-app splash use this asset, and the GitHub Actions workflow copies it into Android launcher mipmap resources when creating the Capacitor project. The final launcher rendering still requires inspection on a real device; do not treat a successful Gradle build as proof of device appearance.
+## Current connected backend status (2026-11-18)
+- 8 active sample products and 15 active categories are in the live database
+- 1 admin profile and 1 approved seller are present
+- `product-images` bucket exists with public-read and approved-seller/admin upload policies
+- No seller-uploaded objects were present during the last backend check; real gallery upload still needs an on-device test
+- COD RPC passed a transaction test; the test transaction was rolled back, so it created no real order and did not reduce stock
+- GitHub Actions run 105 built the APK successfully; the build uses a cached debug signing key
 
-## Production checks still required
-- Verify customer login, seller approval, product photo upload, COD order, stock deduction, and admin actions with real accounts on a device.
-- Configure production hosting and Android release signing before public launch.
-- Online payments and courier integrations are not enabled; COD is the current checkout method.
+## OTP and production setup
+- Email OTP code is present. Configure a production SMTP sender in Supabase and test actual inbox delivery before launch.
+- Mobile OTP code is present, but real SMS delivery requires Supabase Phone Auth and an SMS provider. Configure provider credentials privately in Supabase; never commit secrets to GitHub or share them in chat. India SMS may require TRAI/DLT compliance and provider charges.
+- Online payment gateways, courier booking/tracking APIs, cashback wallet and automated refunds are not integrated yet. COD is the current checkout method.
+- Public production release requires a privately stored release keystore; current GitHub artifact is a debug APK.
+
+## Brand
+The repository uses the supplied FAIZMART logo at `public/assets/faizmart-logo.jpg` for in-app branding and Android launcher icon generation.
 
 ## Build
-GitHub Actions → **FAIZMART INDIA SHOPPING V50 APK** → download the artifact from a successful run.
-The workflow currently builds a debug APK using Java 21 and uploads it as a workflow artifact.
+GitHub Actions → **FAIZMART INDIA SHOPPING V50 APK** → download the APK and source ZIP artifacts from the latest successful run.
