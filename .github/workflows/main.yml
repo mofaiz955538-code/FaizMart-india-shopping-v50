@@ -131,10 +131,19 @@ jobs:
           path = "android/app/build.gradle"
           with open(path, encoding="utf-8") as f:
               gradle = f.read()
-          signing = """
+          marker = "// FAIZMART_STABLE_SIGNING"
+          if marker not in gradle:
+              signing = """
+          // FAIZMART_STABLE_SIGNING
           android {
               signingConfigs {
-                  release {
+                  faizmartDebug {
+                      storeFile file(System.getProperty("user.home") + "/.android/debug.keystore")
+                      storePassword "android"
+                      keyAlias "androiddebugkey"
+                      keyPassword "android"
+                  }
+                  faizmartRelease {
                       if (System.getenv("FAIZMART_KEYSTORE_FILE") != null) {
                           storeFile file(System.getenv("FAIZMART_KEYSTORE_FILE"))
                           storePassword System.getenv("FAIZMART_KEYSTORE_PASSWORD")
@@ -144,18 +153,24 @@ jobs:
                   }
               }
               buildTypes {
+                  debug {
+                      signingConfig signingConfigs.faizmartDebug
+                  }
                   release {
                       if (System.getenv("FAIZMART_KEYSTORE_FILE") != null) {
-                          signingConfig signingConfigs.release
+                          signingConfig signingConfigs.faizmartRelease
                       }
                   }
               }
           }
           """
-          if "signingConfigs {" not in gradle:
               with open(path, "a", encoding="utf-8") as f:
-                  f.write("\n" + signing)
-          print("Prepared optional persistent release signing in app/build.gradle")
+                  f.write("\\n" + signing)
+          with open(path, encoding="utf-8") as f:
+              check = f.read()
+          if marker not in check or "signingConfigs.faizmartDebug" not in check:
+              raise SystemExit("Stable FAIZMART debug signing config was not written")
+          print("Configured Gradle debug signing to use the cached FAIZMART keystore")
           PY
 
       - name: Setup Java
