@@ -220,6 +220,21 @@ jobs:
           "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt" dump badging "$APK" | grep -E "package: name='com.faizmart.india.shopping.v50'|application-label:'FAIZMART INDIA SHOPPING'"
           "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify "$APK"
 
+      - name: Package V50 source ZIP
+        run: |
+          set -e
+          zip -r FAIZMART-INDIA-SHOPPING-V50-SOURCE.zip \
+            .github/workflows/main.yml AndroidManifest.xml README.md FINAL-SETUP-HINDI.md \
+            index.html main.js manifest.webmanifest package.json schema.sql style.css vite.config.js \
+            assets/logo-placeholder.svg public/assets/faizmart-logo.jpg public/assets/logo-placeholder.svg
+          test -s FAIZMART-INDIA-SHOPPING-V50-SOURCE.zip
+
+      - name: Upload V50 source ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: FAIZMART-INDIA-SHOPPING-V50-SOURCE
+          path: FAIZMART-INDIA-SHOPPING-V50-SOURCE.zip
+
       - name: Upload V50 APK
         if: success()
         uses: actions/upload-artifact@v4
