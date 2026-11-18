@@ -109,20 +109,26 @@ async function hydrateUser(){
   await loadWishlist(); await loadOrders();
 }
 async function loadProducts({renderAfter=true}={}){
-  if(!supabase){state.backendError='Supabase URL or publishable key is missing from this build.';render();return}
-  const [productsResult,categoriesResult,deliveryResult,storeResult]=await Promise.all([
-    supabase.from('products').select('*').eq('active',true).order('created_at',{ascending:false}),
-    supabase.from('categories').select('*').eq('active',true).order('name'),
-    supabase.from('v50_delivery_settings').select('*').eq('id',1).maybeSingle(),
-    supabase.from('v50_store_settings').select('admin_commission_rate').eq('id',1).maybeSingle()
-  ]);
-  const firstError=productsResult.error||categoriesResult.error||deliveryResult.error||storeResult.error;
-  state.backendError=firstError?firstError.message:'';
-  state.products=productsResult.data||[];
-  state.categories=categoriesResult.data||[];
-  if(deliveryResult.data)state.settings={...state.settings,freeDelivery:Number(deliveryResult.data.free_delivery_above),flatDelivery:Number(deliveryResult.data.flat_charge),deliveryMode:deliveryResult.data.mode,companyName:deliveryResult.data.company_name||''};
-  if(storeResult.data)state.settings.commission=Number(storeResult.data.admin_commission_rate||10);
-  if(renderAfter)render();
+  if(!supabase){state.backendError='Supabase URL or publishable key is missing from this build.';if(renderAfter)render();return}
+  try{
+    const [productsResult,categoriesResult,deliveryResult,storeResult]=await Promise.all([
+      supabase.from('products').select('*').eq('active',true).order('created_at',{ascending:false}),
+      supabase.from('categories').select('*').eq('active',true).order('name'),
+      supabase.from('v50_delivery_settings').select('*').eq('id',1).maybeSingle(),
+      supabase.from('v50_store_settings').select('admin_commission_rate').eq('id',1).maybeSingle()
+    ]);
+    const firstError=productsResult.error||categoriesResult.error||deliveryResult.error||storeResult.error;
+    state.backendError=firstError?firstError.message:'';
+    state.products=productsResult.data||[];
+    state.categories=categoriesResult.data||[];
+    if(deliveryResult.data)state.settings={...state.settings,freeDelivery:Number(deliveryResult.data.free_delivery_above),flatDelivery:Number(deliveryResult.data.flat_charge),deliveryMode:deliveryResult.data.mode,companyName:deliveryResult.data.company_name||''};
+    if(storeResult.data)state.settings.commission=Number(storeResult.data.admin_commission_rate||10);
+  }catch(error){
+    state.backendError=error?.message||'Supabase से online data लोड नहीं हो पाया.';
+    state.products=[];state.categories=[];
+  }finally{
+    if(renderAfter)render();
+  }
 }
 async function loadWishlist(){if(!supabase||!state.user)return;const {data}=await supabase.from('wishlists').select('product_id').eq('user_id',state.user.id);state.wishlist=new Set((data||[]).map(x=>String(x.product_id)));}
 async function loadOrders(){if(!supabase||!state.user)return;const {data}=await supabase.from('orders').select('*').eq('user_id',state.user.id).order('created_at',{ascending:false});state.orders=data||[];}
@@ -315,5 +321,32 @@ function bindPage(){
   document.querySelector('#refresh-orders')?.addEventListener('click',async()=>{await loadOrders();render()});
 }
 
-if(supabase){supabase.auth.getSession().then(async({data})=>{state.session=data.session;state.user=data.session?.user||null;if(state.user)await hydrateUser();render()});supabase.auth.onAuthStateChange(async(_e,s)=>{state.session=s;state.user=s?.user||null;if(state.user)await hydrateUser();render()})}
+if(supabase){
+  let lastHydratedUserId=null;
+  supabase.auth.onAuthStateChange((_event,session)=>{
+    state.session=session||null;
+    state.user=session?.user||null;
+    const userId=state.user?.id||null;
+    if(!userId){
+      lastHydratedUserId=null;
+      state.profile=null;state.seller=null;state.isAdmin=false;
+      state.addresses=[];state.orders=[];state.wishlist=new Set();
+      state.adminOrders=[];state.adminSellers=[];state.adminCommissions=[];
+      render();
+      return;
+    }
+    if(lastHydratedUserId===userId){render();return}
+    lastHydratedUserId=userId;
+    state.profile=null;state.seller=null;state.isAdmin=false;
+    state.addresses=[];state.orders=[];state.wishlist=new Set();
+    setTimeout(async()=>{
+      try{await hydrateUser()}
+      catch(error){
+        lastHydratedUserId=null;
+        state.backendError='Login हो गया, लेकिन account data लोड नहीं हुआ: '+(error?.message||'कृपया दोबारा कोशिश करें.');
+      }
+      render();
+    },0);
+  });
+}
 render();loadProducts();
