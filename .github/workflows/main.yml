@@ -1,5 +1,9 @@
 name: FAIZMART INDIA SHOPPING V50 APK
 
+concurrency:
+  group: faizmart-v50-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:
@@ -36,7 +40,10 @@ jobs:
         env:
           VITE_SUPABASE_URL: https://yfbnzywamznaxoooqpna.supabase.co
           VITE_SUPABASE_ANON_KEY: sb_publishable_mqRrjkQ4qs_oFqaKkKKuXw_hWy5XlFy
-        run: npm run build
+        run: |
+          npm run build
+          test -s dist/assets/faizmart-logo.jpg
+          grep -q 'faizmart-logo.jpg' dist/index.html
 
       - name: Install Capacitor
         run: |
