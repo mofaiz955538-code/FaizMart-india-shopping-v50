@@ -231,39 +231,59 @@ async function uploadProduct(file){
   }
   return {url:supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl,path};
 }
-function sellerProductForm(){return `<div class="card form"><h3>नया प्रोडक्ट जोड़ें</h3><label>प्रोडक्ट का नाम<input id="pname" required maxlength="120" placeholder="जैसे Ladies Kurti"></label><label>विवरण<textarea id="pdesc" maxlength="2000" placeholder="प्रोडक्ट की जानकारी"></textarea></label><div class="grid two"><label>कैटेगरी<input id="pcat" required maxlength="80" placeholder="Ladies / Gents / Kids"></label><label>बेचने की कीमत (₹)<input id="pprice" type="number" min="1" step="0.01" required inputmode="decimal" placeholder="Selling price"></label></div><div class="grid two"><label>MRP (₹)<input id="pmrp" type="number" min="0" step="0.01" inputmode="decimal" placeholder="MRP (optional)"></label><label>स्टॉक<input id="pstock" type="number" min="0" step="1" required inputmode="numeric" value="1"></label></div><div class="gallery-picker"><button type="button" id="pick-gallery">📷 मोबाइल गैलरी से फोटो चुनें</button><small>ऊपर गैलरी खोलें या नीचे फोन से JPG, PNG, WEBP/HEIC फोटो चुनें. फोटो छोटी JPG में तैयार होगी.</small><label for="pfile">फोन से फोटो चुनें</label><input id="pfile" type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"></div><div id="product-preview" class="product-upload-preview"><small>फोटो चुनने पर उसका preview यहाँ दिखेगा.</small></div><button class="primary" id="save-product">फोटो अपलोड करें और प्रोडक्ट सेव करें</button><div id="product-msg" aria-live="polite"></div></div>`}
+function sellerProductForm(product=null){const editing=!!product;return `<div class="card form" id="seller-product-editor"><h3>${editing?'प्रोडक्ट बदलें':'नया प्रोडक्ट जोड़ें'}</h3><input type="hidden" id="editing-product-id" value="${editing?esc(product.id):''}"><input type="hidden" id="editing-product-image" value="${editing?esc(product.image_url||''):''}"><label>प्रोडक्ट का नाम<input id="pname" required maxlength="120" placeholder="जैसे Ladies Kurti" value="${editing?esc(product.name||''):''}"></label><label>विवरण<textarea id="pdesc" maxlength="2000" placeholder="प्रोडक्ट की जानकारी">${editing?esc(product.description||''):''}</textarea></label><div class="grid two"><label>कैटेगरी<input id="pcat" required maxlength="80" placeholder="Ladies / Gents / Kids" value="${editing?esc(product.category||''):''}"></label><label>बेचने की कीमत (₹)<input id="pprice" type="number" min="1" step="0.01" required inputmode="decimal" placeholder="Selling price" value="${editing?esc(product.price):''}"></label></div><div class="grid two"><label>MRP (₹)<input id="pmrp" type="number" min="0" step="0.01" inputmode="decimal" placeholder="MRP (optional)" value="${editing?esc(product.mrp||''):''}"></label><label>स्टॉक<input id="pstock" type="number" min="0" step="1" required inputmode="numeric" value="${editing?esc(product.stock??1):'1'}"></label></div><label class="inline-check"><input id="pactive" type="checkbox" ${!editing||product.active?'checked':''}> बिक्री के लिए उपलब्ध</label><div class="gallery-picker"><button type="button" id="pick-gallery">📷 मोबाइल गैलरी से फोटो चुनें</button><small>नई फोटो चुनना जरूरी नहीं है; पुरानी फोटो बनी रहेगी. JPG, PNG, WEBP/HEIC फोटो चुनें.</small><label for="pfile">फोन से फोटो चुनें</label><input id="pfile" type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"></div><div id="product-preview" class="product-upload-preview">${editing&&product.image_url?'<img src="'+esc(product.image_url)+'" alt="Product photo preview">':'<small>फोटो चुनने पर उसका preview यहाँ दिखेगा.</small>'}</div><button class="primary" id="save-product">${editing?'प्रोडक्ट अपडेट करें':'फोटो अपलोड करें और प्रोडक्ट सेव करें'}</button><div id="product-msg" aria-live="polite"></div></div>`}
+function bindSellerProductForm(){
+  document.querySelector('#save-product')?.addEventListener('click',saveSellerProduct);
+  document.querySelector('#pick-gallery')?.addEventListener('click',pickProductPhoto);
+  document.querySelector('#pfile')?.addEventListener('change',async event=>{
+    const input=event.target,file=input.files?.[0],preview=document.querySelector('#product-preview');
+    if(!file){state.selectedProductPhoto=null;return}
+    if(preview)preview.innerHTML=msg('फोटो तैयार हो रही है…');
+    try{showProductPhoto(await prepareProductImage(file))}
+    catch(e){input.value='';state.selectedProductPhoto=null;if(preview)preview.innerHTML=msg(e.message||'फोटो पढ़ी नहीं जा सकी.','error')}
+  });
+}
 async function saveSellerProduct(){
   const out=document.querySelector('#product-msg'),button=document.querySelector('#save-product');
   if(!out||!button)return;
   if(!supabase||!state.user){out.innerHTML=msg('पहले Login करें.','error');return}
   if(!state.seller||state.seller.status!=='approved'){out.innerHTML=msg('Admin approval के बाद ही प्रोडक्ट जोड़ा जा सकता है.','error');return}
+  const editingId=document.querySelector('#editing-product-id')?.value||'';
   const name=document.querySelector('#pname').value.trim();
   const category=document.querySelector('#pcat').value.trim()||'General';
   const description=document.querySelector('#pdesc').value.trim();
   const price=Number(document.querySelector('#pprice').value);
   const mrp=Number(document.querySelector('#pmrp').value||0);
   const stock=Number(document.querySelector('#pstock').value);
+  const active=!!document.querySelector('#pactive')?.checked;
   const file=state.selectedProductPhoto||document.querySelector('#pfile').files?.[0];
+  let imageUrl=document.querySelector('#editing-product-image')?.value||'';
   if(!name){out.innerHTML=msg('प्रोडक्ट का नाम भरें.','error');return}
   if(!Number.isFinite(price)||price<=0){out.innerHTML=msg('बेचने की सही कीमत भरें.','error');return}
   if(!Number.isFinite(mrp)||mrp<0||(mrp>0&&mrp<price)){out.innerHTML=msg('MRP खाली छोड़ें या बेचने की कीमत के बराबर/अधिक रखें.','error');return}
   if(!Number.isInteger(stock)||stock<0){out.innerHTML=msg('स्टॉक 0 या उससे अधिक पूरा नंबर होना चाहिए.','error');return}
-  if(!file){out.innerHTML=msg('प्रोडक्ट की फोटो चुनना जरूरी है.','error');return}
-  button.disabled=true;button.textContent='अपलोड हो रहा है…';out.innerHTML=msg('फोटो ऑनलाइन अपलोड हो रही है, कृपया इंतजार करें.');
+  if(!editingId&&!file){out.innerHTML=msg('नया प्रोडक्ट जोड़ने के लिए फोटो चुनें.','error');return}
+  if(file&&!file.type.startsWith('image/')){out.innerHTML=msg('कृपया सही image file चुनें.','error');return}
+  button.disabled=true;button.textContent=editingId?'अपडेट हो रहा है…':'अपलोड हो रहा है…';out.innerHTML=msg(file?'फोटो और प्रोडक्ट ऑनलाइन सेव हो रहे हैं.':'प्रोडक्ट ऑनलाइन अपडेट हो रहा है. कृपया इंतजार करें.');
   let uploadedPath=null;
   try{
-    const uploaded=await uploadProduct(file);uploadedPath=uploaded.path;
-    const row={name,description,category,price,mrp,stock,image_url:uploaded.url,seller_id:state.seller.id,active:true,updated_at:new Date().toISOString()};
-    const {data,error}=await supabase.from('products').insert(row).select('id,name').single();
-    if(error)throw new Error('प्रोडक्ट डेटाबेस में सेव नहीं हुआ: '+error.message);
+    if(file){const uploaded=await uploadProduct(file);uploadedPath=uploaded.path;imageUrl=uploaded.url}
+    if(!imageUrl)throw new Error('प्रोडक्ट की फोटो चुनें.');
+    const row={name,description,category,price,mrp,stock,image_url:imageUrl,seller_id:state.seller.id,active,updated_at:new Date().toISOString()};
+    const result=editingId
+      ? await supabase.from('products').update(row).eq('id',Number(editingId)).eq('seller_id',state.seller.id).select('id,name').single()
+      : await supabase.from('products').insert(row).select('id,name').single();
+    if(result.error)throw new Error('प्रोडक्ट डेटाबेस में सेव नहीं हुआ: '+result.error.message);
     await loadProducts({renderAfter:false});
-    document.querySelector('#pname').value='';document.querySelector('#pdesc').value='';document.querySelector('#pcat').value='';document.querySelector('#pprice').value='';document.querySelector('#pmrp').value='';document.querySelector('#pstock').value='1';document.querySelector('#pfile').value='';state.selectedProductPhoto=null;if(state.selectedProductPhotoUrl){URL.revokeObjectURL(state.selectedProductPhotoUrl);state.selectedProductPhotoUrl=null;}
-    document.querySelector('#product-preview').innerHTML='<small>फोटो चुनने पर उसका preview यहाँ दिखेगा.</small>';
-    out.innerHTML=msg('सफलता! प्रोडक्ट और उसकी फोटो ऑनलाइन सेव हो गए. प्रोडक्ट ID: '+data.id,'success');
+    state.selectedProductPhoto=null;
+    if(state.selectedProductPhotoUrl){URL.revokeObjectURL(state.selectedProductPhotoUrl);state.selectedProductPhotoUrl=null;}
+    document.querySelector('#pfile').value='';
+    document.querySelector('#editing-product-image').value=imageUrl;
+    out.innerHTML=msg((editingId?'प्रोडक्ट अपडेट हो गया.':'प्रोडक्ट और उसकी फोटो ऑनलाइन सेव हो गए.')+' प्रोडक्ट ID: '+result.data.id,'success');
   }catch(e){
     if(uploadedPath){const {error:removeError}=await supabase.storage.from('product-images').remove([uploadedPath]);if(removeError)console.warn('Uploaded image cleanup failed:',removeError.message)}
-    out.innerHTML=msg(e.message||'प्रोडक्ट अपलोड नहीं हुआ. कृपया दोबारा कोशिश करें.','error');
-  }finally{button.disabled=false;button.textContent='फोटो अपलोड करें और प्रोडक्ट सेव करें'}
+    out.innerHTML=msg(e.message||'प्रोडक्ट सेव नहीं हुआ. कृपया दोबारा कोशिश करें.','error');
+  }finally{button.disabled=false;button.textContent=editingId?'प्रोडक्ट अपडेट करें':'फोटो अपलोड करें और प्रोडक्ट सेव करें'}
 }
 async function placeOrder(){
   const out=document.querySelector('#checkout-msg'),button=document.querySelector('#confirm-order');
@@ -339,23 +359,18 @@ function bindPage(){
   document.querySelector('#logout')?.addEventListener('click',async()=>{await supabase.auth.signOut();state.user=null;state.session=null;state.profile=null;state.seller=null;state.isAdmin=false;render()});
   document.querySelector('#seller-register')?.addEventListener('click',registerSeller);
   document.querySelector('[data-action="add-product"]')?.addEventListener('click',()=>{
-    const area=document.querySelector('#seller-area');area.innerHTML=sellerProductForm();
-    document.querySelector('#save-product').onclick=saveSellerProduct;
-    document.querySelector('#pick-gallery').onclick=pickProductPhoto;
-    document.querySelector('#pfile').onchange=async event=>{
-      const input=event.target,file=input.files?.[0],preview=document.querySelector('#product-preview');
-      if(!file){state.selectedProductPhoto=null;if(preview)preview.innerHTML='<small>फोटो चुनने पर preview यहाँ दिखेगा.</small>';return}
-      if(preview)preview.innerHTML=msg('फोटो तैयार हो रही है…');
-      try{showProductPhoto(await prepareProductImage(file))}
-      catch(e){input.value='';state.selectedProductPhoto=null;if(preview)preview.innerHTML=msg(e.message||'फोटो पढ़ी नहीं जा सकी.','error')}
-    };
+    const area=document.querySelector('#seller-area');area.innerHTML=sellerProductForm();bindSellerProductForm();
   });
   document.querySelector('[data-action="seller-products"]')?.addEventListener('click',async()=>{
     const area=document.querySelector('#seller-area');area.innerHTML='<div class="card"><p>आपके प्रोडक्ट लोड हो रहे हैं…</p></div>';
     try{
       const {data,error}=await supabase.from('products').select('*').eq('seller_id',state.seller.id).order('created_at',{ascending:false});
       if(error)throw error;
-      area.innerHTML=`<div class="card"><h3>मेरे प्रोडक्ट (${(data||[]).length})</h3>${(data||[]).map(p=>`<div class="list-row seller-product-row"><img src="${esc(p.image_url||'assets/logo-placeholder.svg')}" onerror="this.src='assets/logo-placeholder.svg'" alt="${esc(p.name)}" style="width:64px;height:64px;object-fit:contain;border-radius:10px;background:#f4f4f5"><span><b>${esc(p.name)}</b><small>${esc(p.category||'General')} • Stock: ${Number(p.stock)||0} • ${p.active?'Active':'Hidden'}</small></span><b>${money(p.price)}</b></div>`).join('')||'<p>अभी कोई प्रोडक्ट नहीं जोड़ा गया है. ऊपर Add Product दबाकर पहला प्रोडक्ट जोड़ें.</p>'}</div>`;
+      area.innerHTML=`<div class="card"><h3>मेरे प्रोडक्ट (${(data||[]).length})</h3>${(data||[]).map(p=>`<div class="list-row seller-product-row"><img src="${esc(p.image_url||'assets/logo-placeholder.svg')}" onerror="this.src='assets/logo-placeholder.svg'" alt="${esc(p.name)}" style="width:64px;height:64px;object-fit:contain;border-radius:10px;background:#f4f4f5"><span><b>${esc(p.name)}</b><small>${esc(p.category||'General')} • Stock: ${Number(p.stock)||0} • ${p.active?'Active':'Hidden'}</small></span><b>${money(p.price)}</b><button type="button" data-edit-product="${esc(p.id)}">Edit</button></div>`).join('')||'<p>अभी कोई प्रोडक्ट नहीं जोड़ा गया है. ऊपर Add Product दबाकर पहला प्रोडक्ट जोड़ें.</p>'}</div>`;
+      area.querySelectorAll('[data-edit-product]').forEach(button=>button.addEventListener('click',()=>{
+        const product=(data||[]).find(item=>String(item.id)===button.dataset.editProduct);if(!product)return;
+        area.querySelector('#seller-product-editor')?.remove();area.insertAdjacentHTML('beforeend',sellerProductForm(product));bindSellerProductForm();
+      }));
     }catch(e){area.innerHTML=`<div class="card">${msg('प्रोडक्ट सूची नहीं खुली: '+(e.message||'कृपया दोबारा कोशिश करें.'),'error')}</div>`}
   });
   document.querySelector('[data-action="seller-orders"]')?.addEventListener('click',async()=>{const {data}=await supabase.from('order_items').select('order_id,product_name,qty,price,seller_id,orders(order_no,status,created_at)').eq('seller_id',state.seller.id).order('id',{ascending:false});document.querySelector('#seller-area').innerHTML=`<div class="card"><h3>My Orders</h3>${(data||[]).map(x=>`<div class="list-row"><span><b>${esc(x.orders?.order_no||x.order_id)}</b><small>${esc(x.product_name)} × ${x.qty} • ${esc(x.orders?.status||'')}</small></span><b>${money(Number(x.price)*Number(x.qty))}</b></div>`).join('')||'<p>No seller orders.</p>'}</div>`});
