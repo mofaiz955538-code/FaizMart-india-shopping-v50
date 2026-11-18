@@ -51,14 +51,14 @@ jobs:
 
       - name: Create Android project
         run: |
+          set -e
           npx cap init "FAIZMART INDIA SHOPPING" "com.faizmart.india.shopping.v50" --web-dir dist
           npx cap add android
           for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
             mkdir -p "android/app/src/main/res/mipmap-${density}"
-            rm -f "android/app/src/main/res/mipmap-${density}/ic_launcher.png" "android/app/src/main/res/mipmap-${density}/ic_launcher_round.png" "android/app/src/main/res/mipmap-${density}/ic_launcher_foreground.png"
-            cp public/assets/faizmart-logo.jpg "android/app/src/main/res/mipmap-${density}/ic_launcher.jpg"
-            cp public/assets/faizmart-logo.jpg "android/app/src/main/res/mipmap-${density}/ic_launcher_round.jpg"
-            cp public/assets/faizmart-logo.jpg "android/app/src/main/res/mipmap-${density}/ic_launcher_foreground.jpg"
+            cp public/assets/faizmart-logo.jpg "android/app/src/main/res/mipmap-${density}/ic_launcher.png"
+            cp public/assets/faizmart-logo.jpg "android/app/src/main/res/mipmap-${density}/ic_launcher_round.png"
+            cp public/assets/faizmart-logo.jpg "android/app/src/main/res/mipmap-${density}/ic_launcher_foreground.png"
           done
           mkdir -p android/app/src/main/res/mipmap-anydpi-v26 android/app/src/main/res/values
           cat > android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
@@ -79,21 +79,26 @@ jobs:
           npx cap sync android
           npx cap copy android
           python3 - <<'PY'
+          import re
           import xml.etree.ElementTree as ET
           path = "android/app/src/main/AndroidManifest.xml"
-          tree = ET.parse(path)
-          root = tree.getroot()
+          source = open(path, encoding="utf-8").read()
+          if not re.search(r'<application\\b', source):
+              raise SystemExit("AndroidManifest.xml has no application element")
+          source = re.sub(
+              r'<application\\b',
+              '<application android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round"',
+              source,
+              count=1,
+          )
+          open(path, "w", encoding="utf-8").write(source)
+          root = ET.parse(path).getroot()
           ns = "{http://schemas.android.com/apk/res/android}"
           app = root.find("application")
-          if app is None:
-              raise SystemExit("AndroidManifest.xml has no application element")
-          app.set(ns + "icon", "@mipmap/ic_launcher")
-          app.set(ns + "roundIcon", "@mipmap/ic_launcher_round")
-          tree.write(path, encoding="utf-8", xml_declaration=True)
-          check = ET.parse(path).getroot().find("application")
-          assert check.get(ns + "icon") == "@mipmap/ic_launcher"
-          assert check.get(ns + "roundIcon") == "@mipmap/ic_launcher_round"
-          print("Verified FAIZMART launcher and round icons in AndroidManifest.xml")
+          assert app is not None
+          assert app.get(ns + "icon") == "@mipmap/ic_launcher"
+          assert app.get(ns + "roundIcon") == "@mipmap/ic_launcher_round"
+          print("Verified FAIZMART launcher and round icon manifest attributes")
           PY
 
       - name: Setup Java
@@ -106,9 +111,13 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Find APK
-        if: always()
-        run: find android -type f -name "*.apk" -print
+      - name: Verify APK package and signature
+        run: |
+          set -e
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt" dump badging "$APK" | grep -E "package: name='com.faizmart.india.shopping.v50'|application-label:'FAIZMART INDIA SHOPPING'"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify "$APK"
 
       - name: Upload V50 APK
         if: success()
