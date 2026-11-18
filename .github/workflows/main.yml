@@ -92,10 +92,10 @@ jobs:
           import xml.etree.ElementTree as ET
           path = "android/app/src/main/AndroidManifest.xml"
           source = open(path, encoding="utf-8").read()
-          if not re.search(r'<application\\b', source):
+          if not re.search(r'<application\b', source):
               raise SystemExit("AndroidManifest.xml has no application element")
           source = re.sub(
-              r'<application\\b',
+              r'<application\b',
               '<application android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round"',
               source,
               count=1,
