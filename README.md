@@ -21,7 +21,7 @@ APK-buildable Android shopping app backed by the live Supabase project.
 - Configure a production email sender/SMTP and verify email OTP delivery.
 
 ## Brand logo
-The user's exact FM / shopping-cart FAIZMART logo is preserved in the earlier V50 Android source ZIP. The current GitHub Actions workflow creates a fresh Capacitor Android project from the web source; launcher/splash resource integration of that exact binary logo is still a required build step and must not be represented as complete until a new APK is built and inspected.
+The current repository includes `public/assets/faizmart-logo.jpg`. The web header and in-app splash use this asset, and the GitHub Actions workflow copies it into Android launcher mipmap resources when creating the Capacitor project. The final launcher rendering still requires inspection on a real device; do not treat a successful Gradle build as proof of device appearance.
 
 ## Production checks still required
 - Verify customer login, seller approval, product photo upload, COD order, stock deduction, and admin actions with real accounts on a device.
