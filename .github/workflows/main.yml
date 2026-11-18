@@ -165,7 +165,7 @@ jobs:
           }
           """
               with open(path, "a", encoding="utf-8") as f:
-                  f.write("\\n" + signing)
+                  f.write("\n" + signing)
           with open(path, encoding="utf-8") as f:
               check = f.read()
           if marker not in check or "signingConfigs.faizmartDebug" not in check:
