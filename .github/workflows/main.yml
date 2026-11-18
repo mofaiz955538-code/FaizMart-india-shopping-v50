@@ -44,7 +44,7 @@ jobs:
 
       - name: Create Android project
         run: |
-          npx cap init "FAIZMART INDIA SHOPPING" "com.faizmart.india.shopping.v50test" --web-dir dist
+          npx cap init "FAIZMART INDIA SHOPPING" "com.faizmart.india.shopping.v50" --web-dir dist
           npx cap add android
           for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
             mkdir -p "android/app/src/main/res/mipmap-${density}"
@@ -90,5 +90,5 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: FAIZMART-INDIA-SHOPPING-V50-TEST
+          name: FAIZMART-INDIA-SHOPPING-V50-INSTALL
           path: android/app/build/outputs/apk/debug/app-debug.apk
