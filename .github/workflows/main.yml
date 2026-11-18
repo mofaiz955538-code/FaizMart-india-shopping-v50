@@ -87,6 +87,25 @@ jobs:
           PY
           npx cap sync android
           npx cap copy android
+
+          python3 - <<'PY'
+          import os, re
+          path = "android/app/build.gradle"
+          with open(path, encoding="utf-8") as f:
+              gradle = f.read()
+          version_code = int(os.environ.get("GITHUB_RUN_NUMBER", "1"))
+          if re.search(r"\\bversionCode\\s+\\d+", gradle):
+              gradle = re.sub(r"(\\bversionCode\\s+)\\d+", rf"\\g<1>{version_code}", gradle, count=1)
+          else:
+              gradle, count = re.subn(r"(defaultConfig\\s*\\{)", rf"\\g<1>\\n        versionCode {version_code}", gradle, count=1)
+              if count != 1:
+                  raise SystemExit("Could not set Android versionCode")
+          if re.search(r'\\bversionName\\s+"[^"]+"', gradle):
+              gradle = re.sub(r'\\bversionName\\s+"[^"]+"', f'versionName "50.0.{version_code}"', gradle, count=1)
+          with open(path, "w", encoding="utf-8") as f:
+              f.write(gradle)
+          print(f"Configured versionCode={version_code}, versionName=50.0.{version_code}")
+          PY
           python3 - <<'PY'
           import xml.etree.ElementTree as ET
           path = "android/app/src/main/AndroidManifest.xml"
@@ -144,6 +163,19 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+
+      - name: Restore stable Android debug signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: faizmart-v50-debug-keystore-v1
+
+      - name: Ensure stable Android debug signing key
+        run: |
+          mkdir -p ~/.android
+          if [ ! -s ~/.android/debug.keystore ]; then
+            keytool -genkeypair -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
       - name: Prepare persistent release signing
         env:
