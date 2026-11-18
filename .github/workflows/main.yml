@@ -88,25 +88,23 @@ jobs:
           npx cap sync android
           npx cap copy android
           python3 - <<'PY'
-          import re
           import xml.etree.ElementTree as ET
           path = "android/app/src/main/AndroidManifest.xml"
-          source = open(path, encoding="utf-8").read()
-          if not re.search(r'<application\b', source):
-              raise SystemExit("AndroidManifest.xml has no application element")
-          source = re.sub(
-              r'<application\b',
-              '<application android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round"',
-              source,
-              count=1,
-          )
-          open(path, "w", encoding="utf-8").write(source)
-          root = ET.parse(path).getroot()
-          ns = "{http://schemas.android.com/apk/res/android}"
+          android_ns = "http://schemas.android.com/apk/res/android"
+          ET.register_namespace("android", android_ns)
+          tree = ET.parse(path)
+          root = tree.getroot()
           app = root.find("application")
-          assert app is not None
-          assert app.get(ns + "icon") == "@mipmap/ic_launcher"
-          assert app.get(ns + "roundIcon") == "@mipmap/ic_launcher_round"
+          if app is None:
+              raise SystemExit("AndroidManifest.xml has no application element")
+          app.set("{" + android_ns + "}icon", "@mipmap/ic_launcher")
+          app.set("{" + android_ns + "}roundIcon", "@mipmap/ic_launcher_round")
+          tree.write(path, encoding="utf-8", xml_declaration=True)
+          check_root = ET.parse(path).getroot()
+          check_app = check_root.find("application")
+          assert check_app is not None
+          assert check_app.get("{" + android_ns + "}icon") == "@mipmap/ic_launcher"
+          assert check_app.get("{" + android_ns + "}roundIcon") == "@mipmap/ic_launcher_round"
           print("Verified FAIZMART launcher and round icon manifest attributes")
           PY
 
