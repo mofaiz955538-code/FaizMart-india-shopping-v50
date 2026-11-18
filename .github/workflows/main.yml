@@ -108,20 +108,78 @@ jobs:
           print("Verified FAIZMART launcher and round icon manifest attributes")
           PY
 
+          python3 - <<'PY'
+          path = "android/app/build.gradle"
+          with open(path, encoding="utf-8") as f:
+              gradle = f.read()
+          signing = """
+          android {
+              signingConfigs {
+                  release {
+                      if (System.getenv("FAIZMART_KEYSTORE_FILE") != null) {
+                          storeFile file(System.getenv("FAIZMART_KEYSTORE_FILE"))
+                          storePassword System.getenv("FAIZMART_KEYSTORE_PASSWORD")
+                          keyAlias System.getenv("FAIZMART_KEY_ALIAS")
+                          keyPassword System.getenv("FAIZMART_KEY_PASSWORD")
+                      }
+                  }
+              }
+              buildTypes {
+                  release {
+                      if (System.getenv("FAIZMART_KEYSTORE_FILE") != null) {
+                          signingConfig signingConfigs.release
+                      }
+                  }
+              }
+          }
+          """
+          if "signingConfigs {" not in gradle:
+              with open(path, "a", encoding="utf-8") as f:
+                  f.write("\\n" + signing)
+          print("Prepared optional persistent release signing in app/build.gradle")
+          PY
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
 
+      - name: Prepare persistent release signing
+        if: ${{ secrets.FAIZMART_KEYSTORE_BASE64 != '' }}
+        env:
+          FAIZMART_KEYSTORE_BASE64: ${{ secrets.FAIZMART_KEYSTORE_BASE64 }}
+          FAIZMART_KEYSTORE_PASSWORD: ${{ secrets.FAIZMART_KEYSTORE_PASSWORD }}
+          FAIZMART_KEY_ALIAS: ${{ secrets.FAIZMART_KEY_ALIAS }}
+          FAIZMART_KEY_PASSWORD: ${{ secrets.FAIZMART_KEY_PASSWORD }}
+        run: |
+          set -e
+          echo "$FAIZMART_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/faizmart-release.jks"
+          echo "FAIZMART_KEYSTORE_FILE=$RUNNER_TEMP/faizmart-release.jks" >> "$GITHUB_ENV"
+          echo "FAIZMART_KEYSTORE_PASSWORD=$FAIZMART_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "FAIZMART_KEY_ALIAS=$FAIZMART_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "FAIZMART_KEY_PASSWORD=$FAIZMART_KEY_PASSWORD" >> "$GITHUB_ENV"
+
       - name: Build APK
         working-directory: android
-        run: ./gradlew assembleDebug --stacktrace
+        run: |
+          set -e
+          if [ -n "$FAIZMART_KEYSTORE_FILE" ]; then
+            ./gradlew clean assembleRelease --stacktrace
+          else
+            ./gradlew clean assembleDebug --stacktrace
+          fi
 
       - name: Verify APK package and signature
         run: |
           set -e
-          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          if [ -n "$FAIZMART_KEYSTORE_FILE" ]; then
+            APK=android/app/build/outputs/apk/release/app-release.apk
+            echo "APK_BUILD_TYPE=release" >> "$GITHUB_ENV"
+          else
+            APK=android/app/build/outputs/apk/debug/app-debug.apk
+            echo "APK_BUILD_TYPE=debug (persistent signing secrets not configured)" >> "$GITHUB_ENV"
+          fi
           test -s "$APK"
           "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt" dump badging "$APK" | grep -E "package: name='com.faizmart.india.shopping.v50'|application-label:'FAIZMART INDIA SHOPPING'"
           "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify "$APK"
@@ -131,4 +189,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: FAIZMART-INDIA-SHOPPING-V50-INSTALL
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/**/*.apk
