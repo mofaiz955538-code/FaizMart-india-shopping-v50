@@ -33,6 +33,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Prepare V50 web source
+        run: |
+          set -e
+          mkdir -p src
+          cp main.js src/main.js
+          cp style.css src/style.css
+          test -s src/main.js
+          test -s src/style.css
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
