@@ -256,8 +256,13 @@ jobs:
           profile: pixel_2
           script: |
             set -e
-            APK="$(find android/app/build/outputs/apk -name "*.apk" -type f | head -n 1)"
+            # Emulator runner may execute from the android/ directory; locate APK robustly.
+            APK="$(find . -type f -path "*/app/build/outputs/apk/*/*.apk" | head -n 1)"
+            if [ -z "$APK" ]; then
+              APK="$(find .. -type f -path "*/app/build/outputs/apk/*/*.apk" | head -n 1)"
+            fi
             test -s "$APK"
+            echo "Testing APK: $APK"
             adb install -r "$APK"
             adb shell monkey -p com.faizmart.india.shopping.v50 1
             echo "FAIZMART APK installed and launch intent executed on Android API 34 emulator"
