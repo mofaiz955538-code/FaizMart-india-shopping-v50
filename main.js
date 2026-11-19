@@ -264,7 +264,8 @@ async function saveSellerProduct(){
   const active=!!document.querySelector('#pactive')?.checked;
   const file=state.selectedProductPhoto||document.querySelector('#pfile').files?.[0];
   let imageUrl=document.querySelector('#editing-product-image')?.value||'';
-  if(!name){out.innerHTML=msg('प्रोडक्ट का नाम भरें.','error');return}\n  if(!category){out.innerHTML=msg('प्रोडक्ट की कैटेगरी भरें.','error');return}
+  if(!name){out.innerHTML=msg('प्रोडक्ट का नाम भरें.','error');return}
+  if(!category){out.innerHTML=msg('प्रोडक्ट की कैटेगरी भरें.','error');return}
   if(!Number.isFinite(price)||price<=0){out.innerHTML=msg('बेचने की सही कीमत भरें.','error');return}
   if(!Number.isFinite(mrp)||mrp<0||(mrp>0&&mrp<price)){out.innerHTML=msg('MRP खाली छोड़ें या बेचने की कीमत के बराबर/अधिक रखें.','error');return}
   if(!Number.isInteger(stock)||stock<0){out.innerHTML=msg('स्टॉक 0 या उससे अधिक पूरा नंबर होना चाहिए.','error');return}
