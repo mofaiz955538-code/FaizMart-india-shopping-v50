@@ -152,7 +152,7 @@ async function registerSeller(){
   const phoneDigits=data.phone.replace(/[^0-9]/g,'');
   if(!data.business_name||!data.owner_name||!data.phone||!data.email){out.innerHTML=msg('Shop name, owner name, mobile number और email सभी भरें.','error');return}
   if(phoneDigits.length!==10&&!(phoneDigits.length===12&&phoneDigits.startsWith('91'))){out.innerHTML=msg('सही 10 अंकों का भारतीय मोबाइल नंबर भरें (या +91 सहित).','error');return}
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email){out.innerHTML=msg('सही email address भरें.','error');return}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)){out.innerHTML=msg('सही email address भरें.','error');return}
   const button=document.querySelector('#seller-register');if(button){button.disabled=true;button.textContent='Application भेजी जा रही है…'}
   try{const {error}=await supabase.rpc('register_seller',{payload:data});out.innerHTML=error?msg('Seller application नहीं भेजी गई: '+error.message,'error'):msg('Seller application saved. Admin approval के बाद product listing चालू होगी. Mobile number अभी SMS OTP से verify नहीं हुआ है.','success');if(!error){await hydrateUser();render()}}
   catch(error){out.innerHTML=msg('Seller application error: '+(error?.message||'कृपया दोबारा कोशिश करें.'),'error')}
