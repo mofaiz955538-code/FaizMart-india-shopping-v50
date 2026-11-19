@@ -166,11 +166,11 @@ async function prepareProductImage(sourceFile){
     let bitmap;
     try{bitmap=await createImageBitmap(sourceFile)}catch(e){if(heic)throw new Error('HEIC फोटो नहीं खुली. कृपया JPG फोटो चुनें.')}
     if(bitmap){
-      const scale=Math.min(1,1800/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas');
+      const scale=Math.min(1,1400/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas');
       canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
       const ctx=canvas.getContext('2d');if(!ctx)throw new Error('फोटो तैयार नहीं हो सकी.');
       ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();
-      const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.86));
+      const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.78));
       if(!blob)throw new Error('फोटो JPG में नहीं बदल सकी.');
       output=new File([blob],`faizmart-product-${Date.now()}.jpg`,{type:'image/jpeg',lastModified:Date.now()});
     }
@@ -181,7 +181,7 @@ async function prepareProductImage(sourceFile){
       const image=new Image();image.src=previewUrl;
       if(typeof image.decode==='function')await image.decode();
       else await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(new Error('फोटो खुल नहीं सकी.'));});
-      const scale=Math.min(1,1800/Math.max(image.naturalWidth,image.naturalHeight)),canvas=document.createElement('canvas');
+      const scale=Math.min(1,1400/Math.max(image.naturalWidth,image.naturalHeight)),canvas=document.createElement('canvas');
       canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));
       const ctx=canvas.getContext('2d');if(!ctx)throw new Error('फोटो तैयार नहीं हो सकी.');
       ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);
@@ -202,7 +202,7 @@ function showProductPhoto(file){
 }
 async function pickProductPhoto(){
   try{
-    const photo=await Camera.getPhoto({quality:86,allowEditing:false,resultType:CameraResultType.Uri,source:CameraSource.Photos,width:1800,height:1800,promptLabelHeader:'प्रोडक्ट की फोटो चुनें',promptLabelPhoto:'गैलरी से चुनें'});
+    const photo=await Camera.getPhoto({quality:78,allowEditing:false,resultType:CameraResultType.Uri,source:CameraSource.Photos,width:1400,height:1400,promptLabelHeader:'प्रोडक्ट की फोटो चुनें',promptLabelPhoto:'गैलरी से चुनें'});
     if(!photo?.webPath)throw new Error('गैलरी से फोटो नहीं मिली.');
     const response=await fetch(photo.webPath);if(!response.ok)throw new Error('चुनी हुई फोटो पढ़ी नहीं जा सकी.');
     const blob=await response.blob(),mime=blob.type?.startsWith('image/')?blob.type:(photo.format==='png'?'image/png':'image/jpeg');
