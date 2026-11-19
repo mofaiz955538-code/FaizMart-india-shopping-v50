@@ -149,10 +149,10 @@ async function loadAdmin(){
 }
 async function registerSeller(){
   const data={business_name:document.querySelector('#shop').value.trim(),owner_name:document.querySelector('#owner').value.trim(),phone:document.querySelector('#smobile').value.trim(),email:document.querySelector('#semail').value.trim()}; const out=document.querySelector('#seller-msg');
-  const phoneDigits=data.phone.replace(/\\D/g,'');
+  const phoneDigits=data.phone.replace(/[^0-9]/g,'');
   if(!data.business_name||!data.owner_name||!data.phone||!data.email){out.innerHTML=msg('Shop name, owner name, mobile number और email सभी भरें.','error');return}
   if(phoneDigits.length!==10&&!(phoneDigits.length===12&&phoneDigits.startsWith('91'))){out.innerHTML=msg('सही 10 अंकों का भारतीय मोबाइल नंबर भरें (या +91 सहित).','error');return}
-  if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(data.email)){out.innerHTML=msg('सही email address भरें.','error');return}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email){out.innerHTML=msg('सही email address भरें.','error');return}
   const button=document.querySelector('#seller-register');if(button){button.disabled=true;button.textContent='Application भेजी जा रही है…'}
   try{const {error}=await supabase.rpc('register_seller',{payload:data});out.innerHTML=error?msg('Seller application नहीं भेजी गई: '+error.message,'error'):msg('Seller application saved. Admin approval के बाद product listing चालू होगी. Mobile number अभी SMS OTP से verify नहीं हुआ है.','success');if(!error){await hydrateUser();render()}}
   catch(error){out.innerHTML=msg('Seller application error: '+(error?.message||'कृपया दोबारा कोशिश करें.'),'error')}
@@ -256,7 +256,7 @@ async function saveSellerProduct(){
   if(!state.seller||state.seller.status!=='approved'){out.innerHTML=msg('Admin approval के बाद ही प्रोडक्ट जोड़ा जा सकता है.','error');return}
   const editingId=document.querySelector('#editing-product-id')?.value||'';
   const name=document.querySelector('#pname').value.trim();
-  const category=document.querySelector('#pcat').value.trim()||'General';
+  const category=document.querySelector('#pcat').value.trim();
   const description=document.querySelector('#pdesc').value.trim();
   const price=Number(document.querySelector('#pprice').value);
   const mrp=Number(document.querySelector('#pmrp').value||0);
@@ -264,7 +264,7 @@ async function saveSellerProduct(){
   const active=!!document.querySelector('#pactive')?.checked;
   const file=state.selectedProductPhoto||document.querySelector('#pfile').files?.[0];
   let imageUrl=document.querySelector('#editing-product-image')?.value||'';
-  if(!name){out.innerHTML=msg('प्रोडक्ट का नाम भरें.','error');return}
+  if(!name){out.innerHTML=msg('प्रोडक्ट का नाम भरें.','error');return}\n  if(!category){out.innerHTML=msg('प्रोडक्ट की कैटेगरी भरें.','error');return}
   if(!Number.isFinite(price)||price<=0){out.innerHTML=msg('बेचने की सही कीमत भरें.','error');return}
   if(!Number.isFinite(mrp)||mrp<0||(mrp>0&&mrp<price)){out.innerHTML=msg('MRP खाली छोड़ें या बेचने की कीमत के बराबर/अधिक रखें.','error');return}
   if(!Number.isInteger(stock)||stock<0){out.innerHTML=msg('स्टॉक 0 या उससे अधिक पूरा नंबर होना चाहिए.','error');return}
@@ -318,9 +318,9 @@ async function saveSettings(){const out=document.querySelector('#admin-msg');con
   const {error:commissionError}=await supabase.from('v50_store_settings').update({admin_commission_rate:rate,updated_at:new Date().toISOString()}).eq('id',1);if(commissionError){out.innerHTML=msg('Delivery saved, but commission setting failed: '+commissionError.message,'error');return}
   state.settings={...state.settings,commission:rate,freeDelivery:free,flatDelivery:flat,deliveryMode:mode,companyName:company};out.innerHTML=msg('Delivery and admin commission settings saved online. New seller registrations will use this commission rate.','success');
 }
-async function updateSellerStatus(id,status){const {error}=await supabase.from('sellers').update({status,updated_at:new Date().toISOString()}).eq('id',id);if(error)alert(error.message);else{await loadAdmin();render()}}
-async function updateOrderStatus(id,status){const {error}=await supabase.from('orders').update({status,updated_at:new Date().toISOString()}).eq('id',id);if(error)alert(error.message);else{await loadAdmin();render()}}
-async function toggleWish(id){if(!state.user){state.view='auth';render();return}const existing=state.wishlist.has(String(id));if(existing){await supabase.from('wishlists').delete().eq('user_id',state.user.id).eq('product_id',Number(id));state.wishlist.delete(String(id));}else{const {error}=await supabase.from('wishlists').insert({user_id:state.user.id,product_id:Number(id)});if(!error)state.wishlist.add(String(id));}render()}
+async function updateSellerStatus(id,status){if(!['pending','approved','suspended'].includes(status)){alert('Invalid seller status.');return}try{const {error}=await supabase.from('sellers').update({status,updated_at:new Date().toISOString()}).eq('id',id);if(error)throw error;await loadAdmin();render()}catch(error){alert('Seller status अपडेट नहीं हुआ: '+(error.message||'कृपया दोबारा कोशिश करें.'))}}
+async function updateOrderStatus(id,status){if(!['New','Processing','Shipped','Delivered','Cancelled'].includes(status)){alert('Invalid order status.');return}try{const {error}=await supabase.from('orders').update({status,updated_at:new Date().toISOString()}).eq('id',id);if(error)throw error;await loadAdmin();render()}catch(error){alert('Order status अपडेट नहीं हुआ: '+(error.message||'कृपया दोबारा कोशिश करें.'))}}
+async function toggleWish(id){if(!state.user){state.view='auth';render();return}try{const existing=state.wishlist.has(String(id));if(existing){const {error}=await supabase.from('wishlists').delete().eq('user_id',state.user.id).eq('product_id',Number(id));if(error)throw error;state.wishlist.delete(String(id))}else{const {error}=await supabase.from('wishlists').insert({user_id:state.user.id,product_id:Number(id)});if(error)throw error;state.wishlist.add(String(id))}render()}catch(error){alert('Wishlist अपडेट नहीं हुई: '+(error.message||'कृपया दोबारा कोशिश करें.'))}}
 
 function bindPage(){
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{state.view=b.dataset.go;render()});
