@@ -45,6 +45,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Prepare V50 web source
+        run: |
+          mkdir -p src
+          cp main.js src/main.js
+          cp style.css src/style.css
+          test -s src/main.js
+          test -s src/style.css
       - name: Install dependencies
         run: npm install
       - name: Build web app
